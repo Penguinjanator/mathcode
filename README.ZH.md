@@ -406,6 +406,26 @@ ANTHROPIC_API_KEY=sk-ant-...
 ANTHROPIC_MODEL=claude-sonnet-4-5
 ```
 
+如果想用 OpenAI-compatible 后端，例如 **[Atlas Cloud](https://www.atlascloud.ai/?utm_source=github&utm_medium=link&utm_campaign=mathcode)** —— 一个全模态推理平台，用一套 OpenAI 兼容 API（含本路线使用的 Responses API）提供 DeepSeek、Qwen、GLM、Kimi、MiniMax 等模型 —— 走 OpenRouter 路线配置即可：
+
+```env
+MATHCODE_USE_OPENAI=0
+MATHCODE_USE_OPENROUTER=1
+
+OPENROUTER_API_KEY=your_atlascloud_api_key
+OPENROUTER_BASE_URL=https://api.atlascloud.ai/v1
+OPENROUTER_MODEL=deepseek-ai/deepseek-v4-pro
+```
+
+`deepseek-ai/deepseek-v4-pro` 是 formalize / prove 阶段的一个合适默认选择。其它常用 Atlas text/chat 模型 id 包括：
+
+- **Anthropic (Claude)：** `anthropic/claude-haiku-4.5-20251001`, `anthropic/claude-opus-4.8`, `anthropic/claude-sonnet-4.6`
+- **OpenAI (GPT)：** `openai/gpt-5.4`, `openai/gpt-5.5`
+- **Google (Gemini)：** `google/gemini-3.1-flash-lite`, `google/gemini-3.1-pro-preview`, `google/gemini-3.5-flash`
+- **xAI：** `xai/grok-4.3`
+
+Atlas 的模型可用性会随时间变化；请用 Atlas 实时模型库或 `GET https://api.atlascloud.ai/v1/models` 选择其它 text/chat 模型 id。
+
 如果你还想让数学工具也停止使用 `codex exec`，再加：
 
 ```env
