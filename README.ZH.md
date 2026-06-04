@@ -406,18 +406,28 @@ ANTHROPIC_API_KEY=sk-ant-...
 ANTHROPIC_MODEL=claude-sonnet-4-5
 ```
 
-如果想用 OpenAI-compatible 后端，例如 **[Atlas Cloud](https://www.atlascloud.ai/?utm_source=github&utm_medium=link&utm_campaign=mathcode)** —— 一个全模态推理平台，用一套 OpenAI 兼容 API（含本路线使用的 Responses API）提供 DeepSeek、Qwen、GLM、Kimi、MiniMax 等模型 —— 走 OpenRouter 路线配置即可：
+如果想使用 OpenAI-compatible Responses 路线，先按 `.env.example` 里的默认 OpenRouter gateway 配置：
 
 ```env
 MATHCODE_USE_OPENAI=0
 MATHCODE_USE_OPENROUTER=1
 
+OPENROUTER_API_KEY=sk-or-...
+OPENROUTER_MODEL=openai/gpt-5.5
+OPENROUTER_SMALL_MODEL=openai/gpt-5.5
+OPENROUTER_REASONING_EFFORT=high
+OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+```
+
+替代 OpenAI-compatible gateway：**[Atlas Cloud](https://www.atlascloud.ai/?utm_source=github&utm_medium=link&utm_campaign=mathcode)**。保持同一条 OpenRouter route 开启，但把 key、base URL 和 model 换成 Atlas 的值：
+
+```env
 OPENROUTER_API_KEY=your_atlascloud_api_key
 OPENROUTER_BASE_URL=https://api.atlascloud.ai/v1
 OPENROUTER_MODEL=deepseek-ai/deepseek-v4-pro
 ```
 
-`deepseek-ai/deepseek-v4-pro` 是 formalize / prove 阶段的一个合适默认选择。其它常用 Atlas text/chat 模型 id 包括：
+`deepseek-ai/deepseek-v4-pro` 是 Atlas 在 formalize / prove 阶段的一个合适默认选择。其它常用 Atlas text/chat 模型 id 包括：
 
 - **Anthropic (Claude)：** `anthropic/claude-haiku-4.5-20251001`, `anthropic/claude-opus-4.8`, `anthropic/claude-sonnet-4.6`
 - **OpenAI (GPT)：** `openai/gpt-5.4`, `openai/gpt-5.5`

@@ -439,18 +439,28 @@ ANTHROPIC_API_KEY=sk-ant-...
 ANTHROPIC_MODEL=claude-sonnet-4-5
 ```
 
-To use an OpenAI-compatible backend such as **[Atlas Cloud](https://www.atlascloud.ai/?utm_source=github&utm_medium=link&utm_campaign=mathcode)** — a full-modal inference platform serving DeepSeek, Qwen, GLM, Kimi, MiniMax and more behind one OpenAI-compatible API (including the Responses API this route uses) — configure the OpenRouter route:
+To use the OpenAI-compatible Responses route, start with the default OpenRouter gateway shown in `.env.example`:
 
 ```env
 MATHCODE_USE_OPENAI=0
 MATHCODE_USE_OPENROUTER=1
 
+OPENROUTER_API_KEY=sk-or-...
+OPENROUTER_MODEL=openai/gpt-5.5
+OPENROUTER_SMALL_MODEL=openai/gpt-5.5
+OPENROUTER_REASONING_EFFORT=high
+OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+```
+
+Alternative OpenAI-compatible gateway: **[Atlas Cloud](https://www.atlascloud.ai/?utm_source=github&utm_medium=link&utm_campaign=mathcode)**. Keep the same OpenRouter route enabled, but use your Atlas key and replace the base URL/model values:
+
+```env
 OPENROUTER_API_KEY=your_atlascloud_api_key
 OPENROUTER_BASE_URL=https://api.atlascloud.ai/v1
 OPENROUTER_MODEL=deepseek-ai/deepseek-v4-pro
 ```
 
-`deepseek-ai/deepseek-v4-pro` is a good default for the formalize/prove stages. Other common Atlas text/chat model IDs include:
+`deepseek-ai/deepseek-v4-pro` is a good Atlas default for the formalize/prove stages. Other common Atlas text/chat model IDs include:
 
 - **Anthropic (Claude):** `anthropic/claude-haiku-4.5-20251001`, `anthropic/claude-opus-4.8`, `anthropic/claude-sonnet-4.6`
 - **OpenAI (GPT):** `openai/gpt-5.4`, `openai/gpt-5.5`
