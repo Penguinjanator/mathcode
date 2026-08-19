@@ -15,7 +15,8 @@
 
 <p align="right"><a href="./README.md">English</a> | <strong>中文</strong></p>
 
-MathCode 是一个终端 AI 编程助手，内置数学形式化引擎。输入一道自然语言数学题，它会自动将其转化为 Lean 4 定理并尝试完成形式化证明。
+MathCode 是一个内置 Lean 能力的终端 AI 编程助手。agent 可以交互式检查
+goal、验证候选源码、检索声明并严格验证最终证明。
 
 ![](./Demo.png)
 
@@ -29,7 +30,7 @@ codex auth login
 mathcode
 ```
 
-`setup.sh` 会准备发行版 checkout：下载或修复 bundle 内运行时，准备本地配置，并为后续 shell 安装 user-local 的 `mathcode` 启动命令。
+`setup.sh` 会准备发行版 checkout：下载或修复 bundle 内运行时，准备本地配置，并为后续 shell 安装 user-local 的 `mathcode` 启动命令。Linux 上还会在 bootstrap Lean workspace 前要求 `bwrap`（`bubblewrap` 包）和 `socat`。
 
 如果当前 shell 还没有 reload profile，可以先用 bundle 内的即时兜底入口 `./run`。
 
@@ -50,11 +51,19 @@ mathcode
 
 - 在需要时从 `.env.example` 创建 `.env`
 - 默认在 `~/.local/bin/` 安装受管的 user-local `mathcode` launcher
-- 创建 `skills/`、`tools/`、`plugins/` 扩展目录
+- 创建 `tools/`、`plugins/` 扩展目录和自带的 `skills/` 参考文档目录；
+  项目技能从 `.mathcode/skills/<name>/SKILL.md` 加载
 - 在 `vendor/ripgrep/` 内自带 MathCode 内部搜索使用的 `rg` 二进制
 
 Lean 工具链：
 
+- 自带版本化的 `lean-workspace/lake-manifest.json`，让 setup 和本地运行使用
+  当前 release 锁定的依赖图
+- setup 会在需要时物化空的受管 `VaultLibs/UserVaultLibs/` 骨架；源码构建主机
+  上的本地 vault 镜像、测试 fixture 与临时 Lean 文件不会进入发布包
+- setup 会直接物化该锁定依赖图，不执行 `lake update`，也不会重写 manifest
+- 可选的 Mathlib cache 获取结束后，必须完成本地 `MathCodeLean` readiness
+  build；跳过 cache 或下载失败时会回退到该构建，而构建失败会中止 setup
 - 默认使用 bundle-local 的完整 `.local/elan` Lean/Lake 工具对
 - 接受 Git Bash/MSYS 下可见的 `lean.exe` / `lake.exe`
 - 在 bootstrap Lean workspace 前先修复不完整的本地 elan 工具文件
@@ -74,12 +83,15 @@ setup 只会覆盖它自己之前创建过的 launcher 文件，避免覆盖已�
 如果选定的 launcher 目录无法使用，setup 只会跳过 launcher 步骤，其余安装流程继续执行。
 
 当 `MATHCODE_SETUP_USE_SYSTEM_LEAN=1` 时，setup 会在切换到 bundle 根目录前捕获系统
-`lean` / `lake` 路径。
+`lean` / `lake` 路径，并把已验证的绝对路径写入 `.env`。即使之后进程的
+`PATH` 不同，runtime 也会重新验证并使用这组精确路径。这两个受管路径采用严格的
+`base64:` UTF-8 编码，因此反斜杠、引号和反引号都能同时安全通过 Bun dotenv
+解析与 `./run` 的 shell sourcing。
 
-未设置这个 opt-in 时，`--status` 会报告默认的本地 `.local/elan` 路径，
-而不会把系统 Lean 当成已安装。
+未设置这个 opt-in 时，setup 会清除过期的受管系统工具链选择，`--status` 会报告
+默认的本地 `.local/elan` 路径，而不会把系统 Lean 当成已安装。
 
-生成的 `.env` 路径值会按 shell 规则引用，因此 bundle 路径里包含 `$` 或单引号等字符时，`./run` source `.env` 后仍会保留字面值。
+生成的普通 `.env` 路径值会按 shell 规则引用，因此 bundle 路径里包含 `$` 或单引号等字符时，`./run` source `.env` 后仍会保留字面值；受管的系统 Lean/Lake 路径使用上面的双解析器编码。
 
 ### 维护命令
 
@@ -95,14 +107,15 @@ bash setup.sh --help     # 查看全部 setup 参数
 - `./mathcode-webui` 是否匹配记录的 release metadata
 - 当前平台的 bundled `rg` 是否可执行并能输出 ripgrep 版本信息
 
-`setup.sh --clean` 会保留 `LeanFormalizations/` 和 vault 里的用户输出。
+`setup.sh --clean` 会保留 `LeanFormalizations/`、vault 里的用户输出和当前
+release 锁定的 Lake manifest。
 
 如果 setup 曾经记录过受管 launcher，之后即使不再设置
 `MATHCODE_INSTALL_BIN_DIR`，`--status` 和 `--clean` 也会继续跟踪它。
 
 ## 环境要求
 
-- macOS (arm64) 或 Linux (x86_64)
+- macOS (arm64)，或基于 glibc 且支持 AVX2 的 Linux（x86_64，使用 Ubuntu 22.04 构建）
 - `curl`，用于 setup/bootstrap 下载
 - `shasum` 或 `sha256sum`，用于校验 release archive 并写入 metadata
 - 足够的磁盘空间用于 bundle、Lean 工具链和 Mathlib cache
@@ -119,6 +132,9 @@ echo "hello" | mathcode -p
 mathcode --help
 ```
 
+MCP XAA IdP setup 要求 issuer URL 非空且使用 HTTPS。`mathcode mcp xaa setup --issuer ...`
+会在写入 settings 前拒绝 `http://`，包括 loopback URL。
+
 如果当前 shell 还没 reload，可以使用 bundle 内兜底入口：
 
 ```bash
@@ -127,7 +143,8 @@ echo "hello" | ./run -p
 ./run --help
 ```
 
-数学结果会写到 `LeanFormalizations/`。
+Agent 会直接编辑所选 workspace 中的 Lean 文件。四个 Lean 原子工具不会另建
+run 目录，也不会写入证明库产物。
 
 ### 浏览器 UI
 
@@ -142,6 +159,13 @@ echo "hello" | ./run -p
 
 直接运行和 wrapper 运行会使用同一份 `.env`、本地 Lean 工具链和 bundle 默认配置。
 如果同目录 wrapper 存在但无法执行，会作为启动失败报告。
+
+在交互式 `./run` session 内，`/webui` 和 `/webUI` 会启动或管理同一个本地
+daemon。该 slash command 支持 `--no-browser`、`--port <port>`、`--status`
+和 `--stop`；source-only 的 `--rebuild` 在发行版 bundle 中不可用。完整认证 URL
+只写到本地终端，command result/status 文本只显示 `token=<redacted>`。通过 slash
+command 启动时，它选定的 port 和 workspace 会覆盖 bundle `.env` 中同名的 WebUI
+设置。
 
 ### Goal 和命令限制
 
@@ -197,6 +221,10 @@ JSON `skills` 列表会按 markdown frontmatter 的规则归一化。
 交互式 context 显示会保留诊断信息：
 
 - `/context` 在交互式和非交互式会话里使用同一套可见 markdown transcript 输出
+- `/config` 里有默认开启的 `Show tool-use warnings` 开关。关闭后只会抑制
+  非错误、且不是 stream parser/drop diagnostic 的 runtime warning transcript
+  事件；tool error、权限拒绝、validation failure、stream-json parser diagnostic
+  以及会影响 agent 下一步的 tool-call 诊断仍然会保留给 agent。
 - markdown 表格会转义单元格内容
 - slash-command 和 deferred built-in tool 明细保持可见
 - 显示 MCP loaded/available 状态
@@ -246,28 +274,75 @@ Shell sleep 自动后台化和 path validation 会识别：
 
 ## 功能特性
 
-### 持久化 Lean REPL
+### 持久化 Lean 反馈后端
 
-启用持久化 Lean 语言服务器，实现亚秒级编译检查：
+符合条件的普通 compile caller 可以选择启用进程内 Lean REPL：
 
 ```env
 MATHCODE_LEAN_REPL=1
 ```
 
-一次性 ~90 秒预热（导入 Mathlib）后，后续每次编译检查仅需 **~0.4 秒**（而非 ~30 秒）。错误检测和通过确认均近乎即时。REPL 自动导入你的定理库和公理库。
+外部 Kimina Lean Server 还可以服务原子探索：
+
+```env
+MATHCODE_KIMINA_SERVER=1
+MATHCODE_KIMINA_CMD="/absolute/path/to/kimina-lean-server/.venv/bin/python -m server"
+MATHCODE_KIMINA_CWD=/absolute/path/to/kimina-lean-server
+MATHCODE_KIMINA_PROJECT_ROOT=/absolute/path/to/served-lean-project
+```
+
+在 macOS 上，只有 declared project 与解析出的项目完全一致，并且在线 guard 确认 Lean
+版本一致时，`LeanGoal` 与 `LeanCheck` 才会复用该 server；否则会回退到
+pinned subprocess，并把原因作为 warning 返回。Kimina 反馈不是完成证书。
+`LeanVerify` 与隔离的 paper agent 始终使用全新的隔离 subprocess。MathCode
+会在 fail-closed Lean sandbox 内以 loopback-only、随机 bearer key（不会进入
+Lean REPL 环境）、无 provider credential、仅 scratch 可写的方式启动 Kimina。
+若使用 virtualenv，它必须位于 `MATHCODE_KIMINA_CWD` 下；
+`MATHCODE_KIMINA_CMD` 必须直接以该 Python 可执行文件开头，不能使用命令包装器。如果 manifest package
+root 包含项目或其他受保护 host scope，启动会直接失败；
+remote package storage 必须留在项目内。只使用 Python 标准库的 guardian
+位于独立只读 support root，并复用已选择的 Kimina Python，因此 sandbox 不会
+开放 MathCode 源码或第二套 runtime；交接路径进入该解释器前，Python site、
+`.pth` 与 `sitecustomize` 加载会被禁用。该 guardian 介入受支持的 `setsid` Lake
+启动，在 Lean 启动前移除私有交接环境、两个 Kimina key 名称及 mode-0600
+认证交接文件，并独立监测 owner pipe HUP，所以 Lake 即使停止读取输入也会被
+连同其单独进程组清理。父进程退出以及
+`SIGINT`/`SIGTERM`/`SIGHUP` 也会清理完整的已拥有进程树。
+取消当前 `/api/check` 请求会保留共享服务；取消旧版 `/verify` 请求或
+backend/transport 状态不确定时，才会清理整棵服务进程树并重启。Linux 与
+Windows 继续使用 pinned subprocess。
+
+### 计划文件
+
+`/plan` 默认把当前 session 的计划 markdown 写到 active user config home
+的 `plans/` 槽位里：默认是 `~/.mathcode/plans/`；如果设置了
+`MATHCODE_CONFIG_DIR`，则跟随重定位后的 config home。若要把计划文件保留
+在项目树内，可在 project 或 local settings 里把 `plansDirectory` 设置为
+相对于项目根的自定义目录。嵌套目录会按需创建；如果路径通过 symlink 逃出
+项目根，则会回退到 user config home 的 `plans/` 目录。
 
 ### 定理库
 
-自动存储已证明的定理，供未来证明复用：
+显式管理可供后续证明复用的定理库：
 
 ```bash
-/theorem-store on     # 启用（写入 .env）
-/theorem-store off    # 禁用
-/theorem-store sync   # 补录所有已证明但未入库的定理
+/theorem-store store <file> <qualified-declaration> # 验证并存储一个定理
+/theorem-store sync   # 检查候选，并询问要存储哪些声明
+/theorem-store check  # compile-check 组装后的定理库
 /theorem-store status # 查看入库数量和 vault 信息
 ```
 
-启用后，每个成功证明的定理会自动命名并追加到 `TheoremLib/Stored.lean`。Planner 和 prover 可以导入并直接复用这些定理，无需重新推导。
+`/theorem-store store` 会针对一个显式的 fully qualified 声明调用
+`LeanTheoremLibrary`。该工具执行新鲜、严格的验证，在持久化前立即重新核对
+源码与依赖快照，然后对组装后 `Stored.lean` 中已重命名的最终声明再次执行
+严格验证。重命名前后的 elaborated 命题必须一致；成功后会立即构建可 import
+的 workspace module。定理库、workspace 镜像、编译产物与索引作为一个可回滚
+事务更新。
+私有定理编译与公开 Lake 发布分别使用有界的 300 秒构建预算；若超时，事务仍会
+回滚，不会暴露不完整产物。
+`/theorem-store sync` 只是可选的 agent 指导：先发现候选并询问要存储哪些
+声明，再对每个确认项分别执行同一个逐声明工具调用。Lean 反馈工具不会把
+定理作为隐藏副作用写入定理库。
 
 ### 公理库
 
@@ -280,24 +355,8 @@ MATHCODE_LEAN_REPL=1
 /axiomatize remove <name>            # 删除一个声明
 ```
 
-公理按 vault 存储，带有 Lean 形式化，经过编译检查，并自动注入到形式化和证明的提示中。支持任何领域：数学、物理、化学、叙事、通用。
-
-### Lean LSP 集成
-
-启用 Lean LSP 以获得更智能的 lemma 检索和结构化报错：
-
-```env
-MATHCODE_USE_LSP=1
-```
-
-启用后，prover 会：
-
-- 在 planning 前通过 leansearch.net 和 Loogle 检索已验证的 Mathlib lemma 名
-- 用带行列号和严重级别的 LSP 诊断代替原始 stderr
-- 在出错位置提取 proof goal，给后续 repair 更精确的上下文
-- 将搜索结果和 vault 知识注入 planner 和 prover 提示
-
-LSP 已内置——不需要单独安装。
+公理按 vault 存储，带有 Lean 形式化并经过编译检查。Lean 原子工具不会隐式
+注入这些公理；只有在它们确实属于目标证明上下文时，才显式 import 或引用。
 
 ### Obsidian 定理图谱
 
@@ -309,46 +368,34 @@ LSP 已内置——不需要单独安装。
 /obsidian generate # 立即重新生成
 ```
 
-启用后，每次形式化和证明都会自动更新 vault。在 Obsidian 中打开并使用 Graph View
-查看定理与引理之间的关系。
+修改证明后使用 `/obsidian generate` 显式刷新 vault。Lean 原子工具不会把更新
+vault 作为隐藏副作用。在 Obsidian 中打开并使用 Graph View 查看定理与引理之间
+的关系。
+刷新只覆盖带有 MathCode 托管标记的笔记，以及托管标记引入前由 MathCode 生成
+且精确符合旧格式的投影；旧投影刷新后会补上标记。如果定理、引理、索引或
+blueprint 文件名被其他用户笔记占用，生成会失败并保留该笔记。
 
 每个引理条目都包含通过 `#print` 从 Mathlib 查询到的完整 Lean 定义。
 
-### Agent 模式证明
+### Agentic Lean
 
-每个证明会话变成一个完整的交互式对话，Agent 使用工具迭代地证明定理：
+普通 Lean 工作可以由 agent 自主选择四个原子工具：
 
-```env
-MATHCODE_AGENT_PROVE=1
-```
+- `LeanGoal` 检查一个明确的源码位置。
+- `LeanCheck` 编译文件或不落盘的候选源码，并返回结构化反馈。
+- `LeanSearch` 只查询一个明确指定的 provider，不做隐藏 fan-out。
+- `LeanVerify` 对一个 fully qualified declaration 执行严格的最终检查；只有 `data.verified=true` 才代表完成。
 
-建议同时启用 Obsidian 定理图谱（Agent 会读取 vault 获取上下文）。启用后，Agent 可以：
-
-- 检索 vault 中的相关 Mathlib 引理
-- 编写证明候选并通过持久化 REPL 编译
-- 读取编译错误、搜索修复方案并重新编译（每个会话最多 10 次）
-- 实时输出推理过程和工具调用
-
-### 子目标树分解证明
-
-将复杂定理分解为独立子目标并行证明：
-
-```env
-MATHCODE_TREE_PROVE=1
-MATHCODE_MAX_TREE_DEPTH=2    # 递归深度（默认：1）
-```
-
-分解器生成带有 `have ... := by sorry` 占位符的骨架。每个子目标独立证明（如果某个失败，协同取消其他子目标）。已证明的子目标体被缝合回骨架并编译检查。
-
-### 多规划器
-
-并行运行多个规划器以获得多样化的证明策略：
-
-```env
-MATHCODE_NUM_PLANNERS=3
-```
-
-每个规划器会提出不同的策略，所有发现的引理都会保存到 vault 中。prover 综合所有方案选择最优路径。默认值为 1（单规划器）。
+可选的 `/lean` skill 只提供启发，不强制阶段、tactic 顺序、重试预算或
+planner。原有固定控制器已经移除，不是发行包入口，也不在 model-visible
+工具目录中。
+被废弃的是固定 scheme，不是有用方法：agent 仍可按需选择子目标分解、helper
+lemma、分支、milestone、stuck detection、诊断 repair 和 theorem reuse，并可
+自由重排或放弃。axiom 与 theorem library 是独立的显式动作，不会成为 Lean
+原子调用的隐藏副作用。
+严格验证只使用项目目录外解析出的 Lean/Lake 可执行文件，并保留 Lake 解析出的
+规范源码/module context；目标的 axiom usage 与 module 直接声明的公理都来自
+Lean environment API，不会信任源码可控制的 macro 或输出。
 
 ### 定时 Agent 循环
 
@@ -367,15 +414,18 @@ MATHCODE_NUM_PLANNERS=3
 
 MathCode 支持三种扩展机制：
 
-### 技能 (`skills/`)
+### 技能 (`.mathcode/skills/`)
 
-放入 `.md` 文件即可添加领域特定知识和证明策略。启动时自动发现。
+项目技能应放在 `.mathcode/skills/<name>/SKILL.md`。每个技能使用独立目录；
+单独的 `skills/*.md` 文件不会被加载。
 
 ### 工具 (`tools/`)
 
 放入带有 YAML frontmatter 的 Python `.py` 脚本即可添加分析工具。启动时自动发现。
 
-4 个分析工具已包含：`axiom_checker`、`sorry_analyzer`、`proof_stats`、`lib_search`。仅在使用这些工具时才需要 Python 3.12+。
+内置 3 个分析工具：`axiom-checker`、`lib-search` 和 `proof-stats`。即使从其他
+workspace 启动 MathCode，它们仍然可用；workspace 中同名（规范化后）的工具会覆盖
+bundle 内置版本。仅在使用这些工具时才需要 Python 3.12+。
 
 ### 插件 (`plugins/`)
 
@@ -397,6 +447,17 @@ mathcode
 
 如果你还在刚执行完 setup 的同一个 shell 里，先用 `./run` 也可以；reload shell 之后再直接用 `mathcode`。
 
+发行版的 `.env` 模板现在会选择 GPT-5.6 Sol 与 xhigh 推理强度。若要把相同
+配置应用到由旧版发行包创建的现有 `.env`，并同时选择 CLI 的最高 effort
+level，请设置：
+
+```env
+OPENAI_MODEL=gpt-5.6-sol
+OPENAI_SMALL_MODEL=gpt-5.6-sol
+OPENAI_REASONING_EFFORT=xhigh
+MATHCODE_EFFORT_LEVEL=max
+```
+
 如果你想改成 Anthropic 兼容后端，可以设置：
 
 ```env
@@ -406,43 +467,12 @@ ANTHROPIC_API_KEY=sk-ant-...
 ANTHROPIC_MODEL=claude-sonnet-4-5
 ```
 
-如果想使用 OpenAI-compatible Responses 路线，先按 `.env.example` 里的默认 OpenRouter gateway 配置：
+发行版 `./run` wrapper 会先 source bundle 内的 `.env`，再启动 MathCode。
+交互式 `/webui` slash-command 启动时，它选定的 WebUI port 和 workspace
+会覆盖该 `.env` 中同名的键。
 
-```env
-MATHCODE_USE_OPENAI=0
-MATHCODE_USE_OPENROUTER=1
-
-OPENROUTER_API_KEY=sk-or-...
-OPENROUTER_MODEL=openai/gpt-5.5
-OPENROUTER_SMALL_MODEL=openai/gpt-5.5
-OPENROUTER_REASONING_EFFORT=high
-OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
-```
-
-替代 OpenAI-compatible gateway：**[Atlas Cloud](https://www.atlascloud.ai/?utm_source=github&utm_medium=link&utm_campaign=mathcode)**。保持同一条 OpenRouter route 开启，但把 key、base URL 和 model 换成 Atlas 的值：
-
-```env
-OPENROUTER_API_KEY=your_atlascloud_api_key
-OPENROUTER_BASE_URL=https://api.atlascloud.ai/v1
-OPENROUTER_MODEL=deepseek-ai/deepseek-v4-pro
-```
-
-`deepseek-ai/deepseek-v4-pro` 是 Atlas 在 formalize / prove 阶段的一个合适默认选择。其它常用 Atlas text/chat 模型 id 包括：
-
-- **Anthropic (Claude)：** `anthropic/claude-haiku-4.5-20251001`, `anthropic/claude-opus-4.8`, `anthropic/claude-sonnet-4.6`
-- **OpenAI (GPT)：** `openai/gpt-5.4`, `openai/gpt-5.5`
-- **Google (Gemini)：** `google/gemini-3.1-flash-lite`, `google/gemini-3.1-pro-preview`, `google/gemini-3.5-flash`
-- **xAI (Grok)：** `xai/grok-4.3`
-
-Atlas 的模型可用性会随时间变化；请用 Atlas 实时模型库或 `GET https://api.atlascloud.ai/v1/models` 选择其它 text/chat 模型 id。
-
-如果你还想让数学工具也停止使用 `codex exec`，再加：
-
-```env
-AUTOLEAN_USE_CODEX=0
-```
-
-Shell 里导出的环境变量优先级高于 `.env`。
+WebUI 路由默认值独立于 CLI `.env`：全新的 WebUI 设置使用
+`openai` / `gpt-5.6-sol`，已有保存的 provider/model 选择会被保留，不会重写。
 
 ### WebUI Provider 密钥
 
@@ -522,4 +552,5 @@ codex auth login
 
 ## 致谢
 
-MathCode 的数学形式化与证明流水线基于 [AUTOLEAN](https://github.com/T3S1AMAX/autolean.git) 项目。
+MathCode 将有用的证明搜索思想保留为可选的 agent 指导，同时始终以 Lean
+作为证明权威。

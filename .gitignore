@@ -5,6 +5,8 @@
 .local
 LeanFormalizations/
 lean-workspace/.lake/
-lean-workspace/lake-manifest.json
+lean-workspace/VaultLibs/
+lean-workspace/_vault_query_*.lean
+lean-workspace/_mathcode_repl_probe_*.lean
 *.log
 *.egg-info

@@ -1,5 +1,5 @@
 name = "MathCodeLean"
-version = "0.2.0"
+version = "0.3.0"
 keywords = ["math", "formalization"]
 defaultTargets = ["MathCodeLean"]
 
@@ -10,18 +10,16 @@ relaxedAutoImplicit = false
 [[require]]
 name = "mathlib"
 scope = "leanprover-community"
+rev = "v4.30.0-rc2"
 
 [[lean_lib]]
 name = "MathCodeLean"
 
 # Theorem library mode — auto-managed
-# user vault libraries. Each vault gets its own subdirectory under
-# VaultLibs/<VaultName>TheoremLib/Stored.lean. Lake derives module names
-# from paths relative to srcDir, so a file at
-# VaultLibs/MyProofsTheoremLib/Stored.lean has module name
-# MyProofsTheoremLib.Stored, and the user-facing import statement is the
-# clean form `import MyProofsTheoremLib.Stored` — the VaultLibs subdirectory
-# does NOT appear at the call site.
+# user vault libraries. Generated mirrors live under the fixed
+# `UserVaultLibs` module root so Lake can discover arbitrary vault namespaces
+# without rewriting this manifest.
 [[lean_lib]]
 name = "UserVaultLibs"
 srcDir = "VaultLibs"
+globs = ["UserVaultLibs.+"]

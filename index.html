@@ -194,11 +194,12 @@
       <h2 class="subtitle is-hero-subtitle"><span class="highlight">A Frontier Mathematical Coding Agent</span><br>A terminal AI coding assistant with a built-in math formalization engine &mdash; describe a problem in plain language and it converts it into a Lean&nbsp;4 theorem and attempts a formal proof.</h2>
       <div class="project-links">
           <a href="https://github.com/math-ai-org/mathcode" target="_blank" rel="noopener" aria-label="GitHub"><i class="fab fa-github"></i></a>
+          <a href="https://github.com/math-ai-org/mathcode/releases/tag/v0.3.0" target="_blank" rel="noopener" aria-label="Download MathCode v0.3.0"><i class="fas fa-download"></i></a>
           <a href="https://discord.gg/f2AFP9W5" target="_blank" rel="noopener" aria-label="Discord"><i class="fab fa-discord"></i></a>
           <a href="#citation" aria-label="Citation"><i class="fas fa-quote-right"></i></a>
       </div>
       <div style="margin-top:1.25rem;">
-          <span class="pill">Lean 4</span><span class="pill">Formal Proof</span><span class="pill">AI Agent</span><span class="pill">Mathlib</span>
+          <a class="pill" href="https://github.com/math-ai-org/mathcode/releases/tag/v0.3.0" target="_blank" rel="noopener">v0.3.0</a><span class="pill">Lean 4</span><span class="pill">Formal Proof</span><span class="pill">AI Agent</span><span class="pill">Mathlib</span>
       </div>
     </div></div>
   </header>
@@ -213,7 +214,7 @@
     <section id="quickstart" class="section content-section"><div class="container">
       <h2 class="section-title">Quick Start</h2>
       <div class="content">
-        <p>Requires macOS (arm64) or Linux (x86_64), plus the <code>codex</code> CLI for the default backend.</p>
+        <p>Latest release: <a href="https://github.com/math-ai-org/mathcode/releases/tag/v0.3.0">MathCode v0.3.0</a>. Requires macOS (arm64) or Linux (x86_64), plus the <code>codex</code> CLI for the default backend.</p>
 <pre><code>git clone https://github.com/math-ai-org/mathcode.git
 cd mathcode
 bash setup.sh
@@ -228,13 +229,13 @@ mathcode</code></pre>
       <h2 class="section-title">Features</h2>
       <div class="columns is-multiline">
           <div class="column is-4"><div class="pillar-box"><strong>Persistent Lean REPL</strong><p style="margin:.5rem 0 0">A persistent Lean language server brings compile checks to <strong>~0.4s</strong> after a one-time warmup, instead of ~30s.</p></div></div>
-          <div class="column is-4"><div class="pillar-box"><strong>Theorem Library</strong><p style="margin:.5rem 0 0">Every proved theorem is auto-named, stored, and made importable so the prover and planner can reuse it.</p></div></div>
+          <div class="column is-4"><div class="pillar-box"><strong>Theorem Library</strong><p style="margin:.5rem 0 0">Explicit theorem-store actions compile, mirror, and index reusable declarations without hidden persistence.</p></div></div>
           <div class="column is-4"><div class="pillar-box"><strong>Axiom Library</strong><p style="margin:.5rem 0 0">Store conversational assumptions as persistent, compile-checked, consistency-reviewed Lean declarations.</p></div></div>
           <div class="column is-4"><div class="pillar-box"><strong>Lean LSP Integration</strong><p style="margin:.5rem 0 0">Searches leansearch.net and Loogle for verified Mathlib lemmas and uses structured LSP diagnostics for repairs.</p></div></div>
           <div class="column is-4"><div class="pillar-box"><strong>Obsidian Theorem Graph</strong><p style="margin:.5rem 0 0">Generates an Obsidian vault that visualizes theorem-to-lemma dependencies as a knowledge graph.</p></div></div>
-          <div class="column is-4"><div class="pillar-box"><strong>Agent-Mode Proving</strong><p style="margin:.5rem 0 0">Each proof becomes an interactive session where the agent writes candidates, reads errors, and recompiles.</p></div></div>
-          <div class="column is-4"><div class="pillar-box"><strong>Tree-of-Subgoals</strong><p style="margin:.5rem 0 0">Decomposes complex theorems into independent subgoals and proves them in parallel, then stitches them back.</p></div></div>
-          <div class="column is-4"><div class="pillar-box"><strong>Multi-Planner</strong><p style="margin:.5rem 0 0">Runs multiple planners in parallel for diverse proof strategies; the prover picks the best approach.</p></div></div>
+          <div class="column is-4"><div class="pillar-box"><strong>Agent-Directed Proving</strong><p style="margin:.5rem 0 0">The agent writes candidates, inspects goals and diagnostics, and decides what to try next.</p></div></div>
+          <div class="column is-4"><div class="pillar-box"><strong>Optional Subgoal Exploration</strong><p style="margin:.5rem 0 0">Subgoals, helper lemmas, branches, and milestones are available as techniques, never a mandatory controller.</p></div></div>
+          <div class="column is-4"><div class="pillar-box"><strong>Strict Lean Verification</strong><p style="margin:.5rem 0 0">A fresh final check verifies one declaration; only a successful verification certificate counts as completion.</p></div></div>
       </div>
     </div></section>
     <section id="citation" class="section content-section"><div class="container">
@@ -249,13 +250,14 @@ mathcode</code></pre>
   url     = {https://github.com/math-ai-org/mathcode}
 }</code></pre>
         <p><button id="copy-cite" class="button"><span class="icon"><i class="fas fa-clipboard"></i></span><span>Copy BibTeX</span></button></p>
-        <p>The math formalization and proving pipeline is based on the <a href="https://github.com/T3S1AMAX/autolean.git" target="_blank" rel="noopener">AUTOLEAN</a> project.</p></div>
+        <p>MathCode preserves useful proof-search ideas as optional agent guidance while Lean remains the proof authority.</p></div>
     </div></section>
   </main>
   <footer class="footer"><div class="container"><div class="content has-text-centered">
     <p><a href="#overview">Overview</a> &nbsp;&bull;&nbsp; <a href="#quickstart">Quick Start</a> &nbsp;&bull;&nbsp;
        <a href="#features">Features</a> &nbsp;&bull;&nbsp; <a href="#citation">Citation</a> &nbsp;&bull;&nbsp;
        <a href="https://github.com/math-ai-org/mathcode">GitHub</a> &nbsp;&bull;&nbsp;
+       <a href="https://github.com/math-ai-org/mathcode/releases/tag/v0.3.0">Release v0.3.0</a> &nbsp;&bull;&nbsp;
        <a href="https://discord.gg/f2AFP9W5">Discord</a> &nbsp;&bull;&nbsp;
        <a href="https://yfz.ai/blog">Yifan's Blog</a></p>
     <p>&copy; 2026 Team Math-AI.</p>

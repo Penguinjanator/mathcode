@@ -3,13 +3,10 @@ set -euo pipefail
 
 DIST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-shell_quote() {
-  printf "'"
-  printf '%s' "$1" | sed "s/'/'\\\\''/g"
-  printf "'"
-}
-
-DEFAULT_MATHCODE_CLI_CMD="$(shell_quote "$DIST_DIR/mathcode") -p"
+CALLER_MATHCODE_WEBUI_PORT_SET="${MATHCODE_WEBUI_PORT+x}"
+CALLER_MATHCODE_WEBUI_PORT="${MATHCODE_WEBUI_PORT-}"
+CALLER_MATHCODE_WEBUI_WORKSPACE_SET="${MATHCODE_WEBUI_WORKSPACE+x}"
+CALLER_MATHCODE_WEBUI_WORKSPACE="${MATHCODE_WEBUI_WORKSPACE-}"
 
 if [[ -f "$DIST_DIR/.env" ]]; then
   set -a
@@ -41,13 +38,18 @@ if local_elan_tool_path lean >/dev/null && local_elan_tool_path lake >/dev/null;
 fi
 
 export LEAN_PROJECT_DIR="${LEAN_PROJECT_DIR:-$DIST_DIR/lean-workspace}"
-export MATHCODE_CLI_CMD="${MATHCODE_CLI_CMD:-$DEFAULT_MATHCODE_CLI_CMD}"
 
 if [[ "${1:-}" == "webui" || "${1:-}" == "--webui" ]]; then
   shift
   if [[ ! -x "$DIST_DIR/mathcode-webui" ]]; then
     printf 'MathCode WebUI binary is not installed here yet. Run `bash setup.sh` first.\n' >&2
     exit 1
+  fi
+  if [[ "$CALLER_MATHCODE_WEBUI_PORT_SET" == "x" ]]; then
+    export MATHCODE_WEBUI_PORT="$CALLER_MATHCODE_WEBUI_PORT"
+  fi
+  if [[ "$CALLER_MATHCODE_WEBUI_WORKSPACE_SET" == "x" ]]; then
+    export MATHCODE_WEBUI_WORKSPACE="$CALLER_MATHCODE_WEBUI_WORKSPACE"
   fi
   export MATHCODE_WEBUI_ENV_LOADED=1
   exec "$DIST_DIR/mathcode-webui" "$@"

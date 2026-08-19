@@ -25,23 +25,27 @@ import re
 import sys
 from pathlib import Path
 
-from _lean_masking import mask_lean_comments_and_strings
+from _lean_masking import (
+    LEAN_IDENT_BOUNDARY,
+    iter_lean_declaration_names,
+    mask_lean_comments_and_strings,
+    mask_lean_escaped_identifiers,
+)
 
 
 _ATTR_FRAGMENT = r"(?:@\[(?:[^\]\[]|\[[^\]]*\])*\]\s*)*"
-_DECL_NAME = r"([^\s:({\[]+)"
-_PLACEHOLDER_RE = r"(?<![\w'])(sorry|admit)(?![\w'])"
-_FORBIDDEN_RE = re.compile(
-    rf"^\s*{_ATTR_FRAGMENT}(?:(?:private|protected|noncomputable|local|unsafe|partial)\s+)*"
-    rf"(?:axiom|constant|postulate)\s+{_DECL_NAME}",
+_PLACEHOLDER_RE = LEAN_IDENT_BOUNDARY
+_FORBIDDEN_START_RE = re.compile(
+    rf"^\s*{_ATTR_FRAGMENT}(?:(?:private|protected|noncomputable|local|unsafe|partial|nonrec)\s+)*"
+    r"(?:axiom|constant|postulate)\b",
     re.MULTILINE,
 )
 _SORRY_RE = re.compile(_PLACEHOLDER_RE)
-_NONCOMPUTABLE_RE = re.compile(
-    rf"^\s*{_ATTR_FRAGMENT}(?:(?:private|protected|local|unsafe|partial)\s+)*"
+_NONCOMPUTABLE_START_RE = re.compile(
+    rf"^\s*{_ATTR_FRAGMENT}(?:(?:private|protected|local|unsafe|partial|nonrec)\s+)*"
     r"noncomputable\s+"
-    rf"{_ATTR_FRAGMENT}(?:(?:private|protected|local|unsafe|partial)\s+)*"
-    rf"(?:def|instance)\s+{_DECL_NAME}",
+    rf"{_ATTR_FRAGMENT}(?:(?:private|protected|local|unsafe|partial|nonrec)\s+)*"
+    r"(?:def|instance)\b",
     re.MULTILINE,
 )
 
@@ -56,6 +60,7 @@ def iter_lean_files(directory: Path):
 def check_file(path: Path) -> dict:
     """Check a single file for forbidden content."""
     text = mask_lean_comments_and_strings(path.read_text(encoding="utf-8"))
+    placeholder_text = mask_lean_escaped_identifiers(text)
 
     # Pre-calculate line offsets for O(n) line-number lookup
     # instead of O(n²) from repeated text[:pos].count("\n").
@@ -76,17 +81,18 @@ def check_file(path: Path) -> dict:
 
     issues: list[dict] = []
 
-    for match in _FORBIDDEN_RE.finditer(text):
-        line_no = _line_of(match.start())
+    for decl_start, _, name_end, name in iter_lean_declaration_names(text, _FORBIDDEN_START_RE):
+        line_no = _line_of(decl_start)
+        decl_summary = text[decl_start:name_end].strip()
         issues.append({
             "line": line_no,
             "severity": "critical",
             "type": "forbidden_declaration",
-            "name": match.group(1),
-            "message": f"Forbidden `{match.group(0).strip()}` — proof must not introduce axioms",
+            "name": name,
+            "message": f"Forbidden `{decl_summary}` — proof must not introduce axioms",
         })
 
-    for match in _SORRY_RE.finditer(text):
+    for match in _SORRY_RE.finditer(placeholder_text):
         line_no = _line_of(match.start())
         issues.append({
             "line": line_no,
@@ -96,14 +102,14 @@ def check_file(path: Path) -> dict:
             "message": f"Proof placeholder `{match.group(1)}` still present",
         })
 
-    for match in _NONCOMPUTABLE_RE.finditer(text):
-        line_no = _line_of(match.start())
+    for decl_start, _, _, name in iter_lean_declaration_names(text, _NONCOMPUTABLE_START_RE):
+        line_no = _line_of(decl_start)
         issues.append({
             "line": line_no,
             "severity": "info",
             "type": "noncomputable",
-            "name": match.group(1),
-            "message": f"Noncomputable declaration `{match.group(1)}` — check if intentional",
+            "name": name,
+            "message": f"Noncomputable declaration `{name}` — check if intentional",
         })
 
     return {

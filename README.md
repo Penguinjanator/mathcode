@@ -15,7 +15,9 @@
 
 <p align="right"><strong>English</strong> | <a href="./README.ZH.md">中文</a></p>
 
-MathCode is a terminal AI coding assistant with a built-in math formalization engine. Give it a math problem in plain language and it will automatically convert it into a Lean 4 theorem and attempt a formal proof.
+MathCode is a terminal AI coding assistant with built-in Lean capabilities. The
+agent can inspect goals, check candidates, search declarations, and verify a
+finished proof interactively.
 
 ![](./Demo.png)
 
@@ -31,7 +33,8 @@ mathcode
 
 `setup.sh` prepares the release checkout for daily use. It downloads or repairs
 the bundled runtime, prepares local configuration, and installs a user-local
-`mathcode` launcher for future shells.
+`mathcode` launcher for future shells. On Linux it also requires `bwrap`
+(package `bubblewrap`) and `socat` before bootstrapping the Lean workspace.
 
 If your current shell has not reloaded its profile yet, use `./run` as the
 bundle-local fallback.
@@ -57,12 +60,24 @@ Local configuration:
 - creates `.env` from `.env.example` when needed
 - installs a managed user-local `mathcode` launcher in `~/.local/bin/` by
   default
-- creates `skills/`, `tools/`, and `plugins/` extension directories
+- creates `tools/` and `plugins/` extension directories plus the bundled
+  `skills/` reference-doc directory; project skills load from
+  `.mathcode/skills/<name>/SKILL.md`
 - ships a bundled `rg` binary under `vendor/ripgrep/` for MathCode's internal
   search paths
 
 Lean toolchain:
 
+- ships the versioned `lean-workspace/lake-manifest.json` so setup and local
+  runs use the dependency graph locked by the release
+- setup materializes an empty managed `VaultLibs/UserVaultLibs/` skeleton when
+  needed; source-host local vault mirrors, test fixtures, and scratch Lean files
+  are not packaged
+- materializes that locked graph during setup without running `lake update` or
+  rewriting the manifest
+- requires a local `MathCodeLean` readiness build after the optional Mathlib
+  cache fetch; cache skips and download failures fall back to that build, and a
+  build failure aborts setup
 - uses a complete bundle-local `.local/elan` Lean/Lake pair by default
 - accepts `lean.exe` / `lake.exe` pairs from Git Bash/MSYS
 - repairs partial local elan tool-file installs before bootstrapping the Lean
@@ -85,13 +100,17 @@ If the selected launcher directory cannot be used, setup skips only the
 launcher step and continues the rest of installation.
 
 When `MATHCODE_SETUP_USE_SYSTEM_LEAN=1`, setup captures system `lean` and
-`lake` before changing into the bundle root. Without that opt-in, `--status`
-reports the default local `.local/elan` path instead of treating system Lean as
-installed.
+`lake` before changing into the bundle root and records their validated absolute
+paths in `.env`. Runtime resolution validates and uses that exact pair even when
+a later process has a different `PATH`. These managed system paths use strict
+`base64:` UTF-8 encoding so Bun dotenv parsing and `./run` shell sourcing both
+preserve literal backslashes, quotes, and backticks. Without that opt-in, setup
+removes any stale managed system-toolchain selection and `--status` reports the
+default local `.local/elan` path instead of treating system Lean as installed.
 
 Generated `.env` path values are shell-quoted, so bundle paths containing
 characters such as `$` or single quotes remain literal when `./run` sources the
-file.
+file; the managed system Lean/Lake values use the dual-parser encoding above.
 
 ### Maintenance Commands
 
@@ -108,13 +127,13 @@ bash setup.sh --help     # show all setup flags
 - the current platform's bundled `rg` is executable and reports a ripgrep
   version banner
 
-`setup.sh --clean` preserves user outputs in `LeanFormalizations/` and vault
-data. If setup previously recorded a managed launcher, later `--status` and
+`setup.sh --clean` preserves user outputs in `LeanFormalizations/`, vault
+data, and the release's locked Lake manifest. If setup previously recorded a managed launcher, later `--status` and
 `--clean` runs keep tracking it even when `MATHCODE_INSTALL_BIN_DIR` is unset.
 
 ## Requirements
 
-- macOS (arm64) or Linux (x86_64)
+- macOS (arm64) or glibc-based Linux (x86_64 with AVX2, built on Ubuntu 22.04)
 - `curl` for setup/bootstrap downloads
 - `shasum` or `sha256sum` for release archive verification and metadata
 - enough disk space for the bundle, Lean toolchain, and Mathlib caches
@@ -131,6 +150,10 @@ echo "hello" | mathcode -p
 mathcode --help
 ```
 
+MCP XAA IdP setup requires a nonblank HTTPS issuer URL.
+`mathcode mcp xaa setup --issuer ...` rejects `http://`, including loopback
+URLs, before writing settings.
+
 If you have not reloaded your shell yet, use the bundle-local fallback:
 
 ```bash
@@ -139,7 +162,8 @@ echo "hello" | ./run -p
 ./run --help
 ```
 
-Math outputs are written to `LeanFormalizations/`.
+The agent edits Lean files in the selected workspace. The atomic Lean tools do
+not create a separate run directory or write proof-library artifacts.
 
 ### Browser UI
 
@@ -154,6 +178,14 @@ If launched directly, the packaged `./mathcode-webui` helper re-enters the
 sibling `./run webui` wrapper first. Direct and wrapper launches therefore use
 the same `.env`, local Lean toolchain, and bundle defaults. A present but
 broken wrapper is reported as a launch failure.
+
+Inside an interactive `./run` session, `/webui` and `/webUI` launch or manage
+the same local daemon. The slash command supports `--no-browser`,
+`--port <port>`, `--status`, and `--stop`; source-only `--rebuild` is not
+available in release bundles. The full authenticated URL is written only to the
+local terminal, while command result/status text redacts it as
+`token=<redacted>`. For slash-command launches, the selected port and workspace
+override same-named WebUI keys from the bundle `.env`.
 
 ### Goal And Command Limits
 
@@ -213,6 +245,11 @@ Interactive context displays keep diagnostic context intact:
 
 - `/context` uses the same visible markdown transcript output in interactive and
   non-interactive sessions
+- `/config` includes a default-on `Show tool-use warnings` toggle. Disabling it
+  suppresses only non-error runtime warning transcript events that are not
+  stream parser/drop diagnostics; tool errors, permission denials, validation
+  failures, stream-json parser diagnostics, and actionable tool-call diagnostics
+  remain visible to the agent.
 - markdown table cells are escaped
 - slash-command and deferred built-in tool details remain visible
 - MCP loaded/available status is shown
@@ -270,35 +307,83 @@ Shell sleep auto-backgrounding and path validation recognize:
 
 ## Features
 
-### Persistent Lean REPL
+### Persistent Lean feedback backends
 
-Enable a persistent Lean language server for sub-second compile checks:
+Eligible generic compile callers can opt into the in-process Lean REPL:
 
 ```env
 MATHCODE_LEAN_REPL=1
 ```
 
-After a one-time ~90s warmup (importing Mathlib), every subsequent compile
-check takes **~0.4s** instead of ~30s.
+An external Kimina Lean Server can additionally serve atomic exploration:
 
-Both error detection and pass confirmation are near-instant. The REPL
-automatically imports your theorem library and axiom library.
+```env
+MATHCODE_KIMINA_SERVER=1
+MATHCODE_KIMINA_CMD="/absolute/path/to/kimina-lean-server/.venv/bin/python -m server"
+MATHCODE_KIMINA_CWD=/absolute/path/to/kimina-lean-server
+MATHCODE_KIMINA_PROJECT_ROOT=/absolute/path/to/served-lean-project
+```
+
+On macOS, `LeanGoal` and `LeanCheck` reuse that server only when the declared project
+matches the resolved project and a live guard confirms its Lean version.
+Otherwise they fall back to the pinned subprocess and expose the reason as a
+warning. Kimina feedback is not a completion certificate. `LeanVerify` and
+isolated paper agents always use fresh isolated subprocesses. MathCode launches
+Kimina loopback-only inside its fail-closed Lean sandbox, with a random bearer
+key that never enters the Lean REPL environment, no provider credentials, and
+scratch-only writes. A virtualenv, when used, must live below
+`MATHCODE_KIMINA_CWD`, and `MATHCODE_KIMINA_CMD` must start directly with that
+Python executable rather than a command wrapper. Manifest roots that contain the project or another
+protected host scope are rejected, and remote-package storage stays inside the
+project. A standard-library-only Python guardian lives in a separate read-only
+support root and reuses the selected Kimina interpreter, so no MathCode source
+tree or second runtime is exposed to the sandbox. Python site, `.pth`, and
+`sitecustomize` loading are disabled before the handoff path enters that
+interpreter. It mediates supported
+`setsid` Lake launches, deletes the mode-0600 auth handoff and strips both
+Kimina key names plus its private environment before Lean starts, and kills its
+separately owned Lake group through an independent owner-pipe HUP observer, even
+when Lake stops reading input. Parent exit and
+`SIGINT`/`SIGTERM`/`SIGHUP`
+also clean the complete owned tree. Current `/api/check` caller cancellation
+preserves the shared service; legacy `/verify` cancellation or uncertain
+backend/transport state cleans up the complete service tree before restart.
+Linux and Windows use pinned subprocesses.
+
+### Plan Files
+
+`/plan` stores session plan markdown in the active user config-home `plans/`
+slot by default (`~/.mathcode/plans/` unless `MATHCODE_CONFIG_DIR` relocates
+the config home). To keep plan files under the project tree, set
+`plansDirectory` in project or local settings to a custom directory relative to
+the project root. Nested directories are created as needed, and symlink escapes
+fall back to the user config-home `plans/` directory.
 
 ### Theorem Library
 
-Automatically store proved theorems for reuse in future proofs:
+Manage an explicit library of proved theorems:
 
 ```bash
-/theorem-store on     # enable (writes to .env)
-/theorem-store off    # disable
-/theorem-store sync   # backfill all proved-but-unstored theorems
+/theorem-store store <file> <qualified-declaration> # verify and store one theorem
+/theorem-store sync   # inspect candidates and ask which declarations to store
+/theorem-store check  # compile-check the assembled library
 /theorem-store status # show stored count and vault info
 ```
 
-When enabled, every successfully proved theorem is automatically named,
-appended to `TheoremLib/Stored.lean`, and made importable for future proofs.
-
-The prover and planner can reuse stored theorems instead of re-deriving them.
+`/theorem-store store` calls `LeanTheoremLibrary` for one explicit fully
+qualified declaration. The tool performs fresh strict verification, rechecks
+the source and dependency snapshot immediately before persistence, then
+strictly verifies the exact renamed declaration in the assembled `Stored.lean`.
+The elaborated proposition must remain identical, and success immediately
+builds an importable workspace module. The library, workspace mirror, compiled
+artifacts, and index update as one rollback-capable transaction.
+Private theorem compilation and public Lake publication each have a separate
+bounded 300-second build budget; a timeout still rolls the transaction back
+without exposing incomplete artifacts.
+`/theorem-store sync` is optional
+agent guidance: it discovers candidates, asks which declarations to store, then
+uses the same one-declaration tool call for each confirmed candidate. Atomic
+Lean feedback tools never append to the theorem library as a hidden effect.
 
 ### Axiom Library
 
@@ -311,24 +396,9 @@ Store conversational assumptions as persistent, consistency-checked declarations
 /axiomatize remove <name>            # remove a declaration
 ```
 
-Axioms are stored per-vault with Lean formalization, compile-checked, and auto-injected into formalization and proving prompts. Supports any domain: math, physics, chemistry, narrative, general.
-
-### Lean LSP Integration
-
-Enable Lean LSP for smarter lemma discovery and structured error feedback during proving:
-
-```env
-MATHCODE_USE_LSP=1
-```
-
-When enabled, the prover:
-
-- Searches leansearch.net and Loogle for verified Mathlib lemma names before planning
-- Uses structured LSP diagnostics (line/col/severity) instead of raw stderr
-- Extracts proof goal at error location for targeted repairs
-- Injects search results and vault knowledge into planner and prover prompts
-
-LSP is built-in — no separate installation required.
+Axioms are stored per vault with Lean formalization and compile checks. Atomic
+Lean tool calls do not inject them implicitly; import or reference the stored
+declarations explicitly when they are part of the intended proof context.
 
 ### Obsidian Theorem Graph
 
@@ -340,51 +410,38 @@ Generate an Obsidian vault that visualizes theorem dependencies as a knowledge g
 /obsidian generate # regenerate now
 ```
 
-When enabled, every formalization and proof auto-updates the vault. Open it in
+Use `/obsidian generate` after changing proofs to refresh the vault explicitly.
+Atomic Lean tool calls never update it as a hidden side effect. Open it in
 Obsidian and use Graph View to see theorem-to-lemma relationships.
+Refreshes overwrite MathCode-managed notes and exact legacy MathCode projections
+from before the managed marker existed; those legacy notes gain the marker. If
+a theorem, lemma, index, or blueprint filename is occupied by any other user
+note, generation fails and preserves that note.
 
 Each lemma stub includes the full Lean definition queried from Mathlib via
 `#print`.
 
-### Agent-Mode Proving
+### Agentic Lean
 
-Each proof session becomes a full interactive chat where the agent uses tools to iteratively prove theorems:
+For ordinary Lean work, the agent can choose among four atomic tools:
 
-```env
-MATHCODE_AGENT_PROVE=1
-```
+- `LeanGoal` inspects one explicit source position.
+- `LeanCheck` compiles a file or ephemeral candidate and returns structured feedback.
+- `LeanSearch` queries one explicit provider without hidden fan-out.
+- `LeanVerify` performs the strict final check for one fully qualified declaration; only `data.verified=true` certifies completion.
 
-Works best with Obsidian Theorem Graph enabled (the agent reads the vault for context). When enabled, the agent can:
-
-- Search the vault for relevant Mathlib lemmas
-- Write proof candidates and compile them via the persistent REPL
-- Read compile errors, search for fixes, and recompile (up to 10 times per session)
-- Stream its reasoning and tool calls in real-time
-
-### Tree-of-Subgoals Proving
-
-Decompose complex theorems into independent subgoals and prove them in parallel:
-
-```env
-MATHCODE_TREE_PROVE=1
-MATHCODE_MAX_TREE_DEPTH=2    # recursion depth (default: 1)
-```
-
-The decomposer generates a skeleton with `have ... := by sorry` placeholders.
-Each subgoal is proved independently, with cooperative cancellation if one
-fails.
-
-Proven bodies are stitched back into the skeleton and compile-checked.
-
-### Multi-Planner
-
-Run multiple planners in parallel to get diverse proof strategies:
-
-```env
-MATHCODE_NUM_PLANNERS=3
-```
-
-Each planner proposes a different strategy. All discovered lemmas are saved to the vault. The prover sees all plans and picks the best approach. Default is 1 (single planner).
+The optional `/lean` skill offers guidance without imposing a fixed phase,
+tactic order, retry budget, or planner. The former fixed controllers have been
+removed and are not release entrypoints or model-visible tools.
+The fixed scheme is retired, not the useful methods: the agent may still choose
+subgoal decomposition, helper lemmas, branching, milestones, stuck detection,
+diagnostic repair, and theorem reuse, then reorder or abandon them freely.
+Axiom and theorem libraries are separate explicit actions, never hidden effects
+of an atomic Lean call.
+Strict verification resolves Lean/Lake executables outside the project tree,
+preserves Lake's canonical source/module context, and obtains target axiom
+usage plus direct module axioms through Lean's environment API rather than
+source-controlled macros or output.
 
 ### Scheduled Agent Loops
 
@@ -403,15 +460,19 @@ Use short-lived loops for reminders and monitoring. When you want a schedule to 
 
 MathCode supports three extension mechanisms:
 
-### Skills (`skills/`)
+### Skills (`.mathcode/skills/`)
 
-Drop `.md` files to add domain-specific knowledge and proving strategies. Auto-discovered at startup.
+Add project-local skills at `.mathcode/skills/<name>/SKILL.md`. Each skill
+uses its own directory; standalone `skills/*.md` files are not loaded.
 
 ### Tools (`tools/`)
 
 Drop Python `.py` scripts with YAML frontmatter to add analysis tools. Auto-discovered at startup.
 
-4 analysis tools are included: `axiom_checker`, `sorry_analyzer`, `proof_stats`, `lib_search`. Python 3.12+ is required only if you use these tools.
+3 analysis tools are included: `axiom-checker`, `lib-search`, and
+`proof-stats`. They remain available when MathCode is launched from another
+workspace; a workspace-local tool with the same normalized name overrides the
+bundled copy. Python 3.12+ is required only if you use these tools.
 
 ### Plugins (`plugins/`)
 
@@ -430,6 +491,17 @@ mathcode
 
 If you are still in the same shell where setup just finished, `./run` is the immediate fallback until you reload your shell profile.
 
+The packaged `.env` template now selects GPT-5.6 Sol at xhigh reasoning effort.
+To apply the same values to an existing `.env` created by an older release and
+also select the CLI's maximum effort level, set:
+
+```env
+OPENAI_MODEL=gpt-5.6-sol
+OPENAI_SMALL_MODEL=gpt-5.6-sol
+OPENAI_REASONING_EFFORT=xhigh
+MATHCODE_EFFORT_LEVEL=max
+```
+
 To use an Anthropic-compatible backend instead, set:
 
 ```env
@@ -439,43 +511,13 @@ ANTHROPIC_API_KEY=sk-ant-...
 ANTHROPIC_MODEL=claude-sonnet-4-5
 ```
 
-To use the OpenAI-compatible Responses route, start with the default OpenRouter gateway shown in `.env.example`:
+The release `./run` wrapper sources the bundle `.env` before launching
+MathCode. For interactive `/webui` slash-command launches, the selected WebUI
+port and workspace override same-named keys from that `.env`.
 
-```env
-MATHCODE_USE_OPENAI=0
-MATHCODE_USE_OPENROUTER=1
-
-OPENROUTER_API_KEY=sk-or-...
-OPENROUTER_MODEL=openai/gpt-5.5
-OPENROUTER_SMALL_MODEL=openai/gpt-5.5
-OPENROUTER_REASONING_EFFORT=high
-OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
-```
-
-Alternative OpenAI-compatible gateway: **[Atlas Cloud](https://www.atlascloud.ai/?utm_source=github&utm_medium=link&utm_campaign=mathcode)**. Keep the same OpenRouter route enabled, but use your Atlas key and replace the base URL/model values:
-
-```env
-OPENROUTER_API_KEY=your_atlascloud_api_key
-OPENROUTER_BASE_URL=https://api.atlascloud.ai/v1
-OPENROUTER_MODEL=deepseek-ai/deepseek-v4-pro
-```
-
-`deepseek-ai/deepseek-v4-pro` is a good Atlas default for the formalize/prove stages. Other common Atlas text/chat model IDs include:
-
-- **Anthropic (Claude):** `anthropic/claude-haiku-4.5-20251001`, `anthropic/claude-opus-4.8`, `anthropic/claude-sonnet-4.6`
-- **OpenAI (GPT):** `openai/gpt-5.4`, `openai/gpt-5.5`
-- **Google (Gemini):** `google/gemini-3.1-flash-lite`, `google/gemini-3.1-pro-preview`, `google/gemini-3.5-flash`
-- **xAI (Grok):** `xai/grok-4.3`
-
-Atlas model availability changes over time; use the live Atlas model library or `GET https://api.atlascloud.ai/v1/models` to choose another text/chat model id.
-
-If you also want the math tools to stop using `codex exec`, add:
-
-```env
-AUTOLEAN_USE_CODEX=0
-```
-
-Shell-exported environment variables override `.env`.
+The WebUI route default is separate from the CLI `.env`: fresh WebUI settings
+use `openai` / `gpt-5.6-sol`, while an existing saved provider/model selection
+is preserved rather than rewritten.
 
 ### WebUI Provider Keys
 
@@ -557,4 +599,5 @@ Join our Discord for help, feedback, and discussion: **[discord.gg/f2AFP9W5](htt
 
 ## Acknowledgments
 
-The math formalization and proving pipeline in MathCode is based on the [AUTOLEAN](https://github.com/T3S1AMAX/autolean.git) project.
+MathCode preserves useful proof-search ideas as optional agent guidance while
+Lean remains the proof authority.

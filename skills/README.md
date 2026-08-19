@@ -1,30 +1,23 @@
 # Skills
 
-Drop Lean 4 / math domain skills here as `.md` files. They are auto-discovered and available as `/skill-name` commands in MathCode.
+The repo-root `skills/` directory is not a runtime skill drop folder.
+Project-local skills belong at `.mathcode/skills/<name>/SKILL.md`; standalone
+`skills/*.md` files are ignored.
 
 ## Format
 
-Each `.md` file becomes a skill. The filename (without `.md`) is the command name.
+Each project skill gets its own directory. The directory name is the skill
+name, and `SKILL.md` contains the instructions and frontmatter.
 
 ```markdown
+---
+name: my-skill
+description: What this skill does
+---
+
 # My Skill Title
 
-## When to use
-Description of when this skill applies.
-
-## Content
 The actual skill content — tactics, patterns, reference material, etc.
-```
-
-## Optional Frontmatter
-
-```markdown
----
-description: What this skill does
-when_to_use: When to activate
-allowed-tools: Bash, Read, Write
-model: inherit
----
 ```
 
 ## Built-in Skills
@@ -39,4 +32,5 @@ These domain skills are compiled into the binary (no `.md` file needed):
 - `tactic-cascade` — Fast-to-slow tactic ordering reference
 - `type-coercion-patterns` — Nat.card vs Fintype.card, Fact vs Prop, etc.
 
-Add your own `.md` skills here to extend MathCode with domain-specific knowledge.
+The optional `/lean` skill may recommend these strategies, but it does not
+force a planner, tactic order, or proof scheme.

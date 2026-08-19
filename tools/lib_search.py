@@ -43,6 +43,15 @@ STORED_THEOREM_BLOCK_RE = re.compile(
     r"-- @end-stored-theorem",
     re.DOTALL,
 )
+STORED_THEOREM_START_MARKER_RE = re.compile(r"^-- @stored-theorem(?:\s|$)")
+STORED_THEOREM_PLAUSIBLE_BLOCK_START_RE = re.compile(
+    r"^-- @stored-theorem\s+(?P<stored_name>[A-Za-z0-9_]+)\b.*?\n"
+    r"-- Original:\s*.+?\n"
+    r"-- Source:\s*.*?\n"
+    r"-- Proved:\s*.*?\n"
+    r"theorem\s+(?P=stored_name)\b",
+    re.DOTALL,
+)
 
 
 def validate_lean_identifier(name: str) -> str | None:
@@ -100,9 +109,10 @@ def split_header_and_body(type_and_body: str) -> tuple[str, str]:
 
 
 def parse_stored_lean(text: str) -> list[dict[str, str]]:
-    """Parse Stored.lean blocks without depending on the removed AUTOLEAN tree."""
+    """Parse Stored.lean blocks without depending on a controller runtime."""
     records: list[dict[str, str]] = []
-    for match in STORED_THEOREM_BLOCK_RE.finditer(text):
+    matches = list(STORED_THEOREM_BLOCK_RE.finditer(text))
+    for match in matches:
         groups = match.groupdict()
         header, body = split_header_and_body(groups["type_and_body"])
         records.append(
@@ -115,7 +125,34 @@ def parse_stored_lean(text: str) -> list[dict[str, str]]:
                 "proof_body": body,
             }
         )
+    parsed_starts = {match.start() for match in matches}
+    parsed_spans = [match.span() for match in matches]
+    sentinel_count = 0
+    offset = 0
+    for line in text.splitlines(keepends=True):
+        content_line = line.removesuffix("\n").removesuffix("\r")
+        if STORED_THEOREM_START_MARKER_RE.match(content_line):
+            inside_parsed_block = any(start < offset < end for start, end in parsed_spans)
+            plausible_start = STORED_THEOREM_PLAUSIBLE_BLOCK_START_RE.match(
+                text[offset:]
+            )
+            if (
+                offset in parsed_starts
+                or not inside_parsed_block
+                or plausible_start is not None
+            ):
+                sentinel_count += 1
+        offset += len(line)
+    if sentinel_count > len(records):
+        raise ValueError("Stored.lean contains malformed stored-theorem blocks")
     return records
+
+
+def expand_home_vault_path(raw: str) -> Path:
+    """Expand only the current user's home alias, not arbitrary ~user names."""
+    if raw == "~" or raw.startswith("~/") or raw.startswith("~\\"):
+        return Path(raw).expanduser()
+    return Path(raw)
 
 
 def parse_args(argv: list[str]) -> tuple[str, Path]:
@@ -129,7 +166,7 @@ def parse_args(argv: list[str]) -> tuple[str, Path]:
         if arg == "--vault":
             if i + 1 >= len(args):
                 raise ValueError("--vault requires a path")
-            vault_path = Path(args[i + 1])
+            vault_path = expand_home_vault_path(args[i + 1])
             i += 2
             continue
         query_parts.append(arg)
@@ -144,7 +181,7 @@ def parse_args(argv: list[str]) -> tuple[str, Path]:
             raise ValueError(
                 "MATHCODE_OBSIDIAN_VAULT not set. Set the env var or pass --vault <path>."
             )
-        vault_path = Path(vault_path_str)
+        vault_path = expand_home_vault_path(vault_path_str)
 
     return " ".join(query_parts), vault_path
 
@@ -155,11 +192,8 @@ def search_stored(query: str, vault_path: Path) -> list[dict[str, Any]]:
     if not stored_path.exists():
         return []
 
-    try:
-        text = stored_path.read_text(encoding="utf-8")
-        records = parse_stored_lean(text)
-    except Exception:
-        return []
+    text = stored_path.read_text(encoding="utf-8")
+    records = parse_stored_lean(text)
 
     namespace = derive_vault_namespace(vault_path)
     keywords = query.lower().split()
@@ -189,7 +223,7 @@ def main() -> int:
     try:
         query, vault_path = parse_args(sys.argv)
         results = search_stored(query, vault_path)
-    except ValueError as exc:
+    except (OSError, UnicodeDecodeError, ValueError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         print("Usage: python3 tools/lib_search.py [--vault <path>] <query>", file=sys.stderr)
         return 1
