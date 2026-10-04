@@ -52,6 +52,8 @@ mathcode -p "证明偶数的平方仍然是偶数"
 
 ## 文档
 
+在线阅读：[中文文档](https://math-ai-org.github.io/mathcode/docs/index.ZH.html)。
+
 | 指南 | 内容 |
 | --- | --- |
 | [安装](docs/release/installation.ZH.md) | 环境要求、安装方式、升级、工具链与排障 |

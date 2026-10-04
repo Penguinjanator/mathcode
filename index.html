@@ -183,6 +183,7 @@
           <a href="#overview" class="navbar-item">Overview</a>
           <a href="#quickstart" class="navbar-item">Quick Start</a>
           <a href="#features" class="navbar-item">Features</a>
+          <a href="docs/" class="navbar-item">Docs</a>
           <a href="#citation" class="navbar-item">Citation</a>
           <a href="https://yfz.ai/blog" class="navbar-item">Blog</a>
         </div></div>
@@ -214,13 +215,13 @@
     <section id="quickstart" class="section content-section"><div class="container">
       <h2 class="section-title">Quick Start</h2>
       <div class="content">
-        <p>Latest release: <a href="https://github.com/math-ai-org/mathcode/releases/tag/v0.4.0">MathCode v0.4.0</a>. Requires macOS (arm64) or Linux (x86_64), plus the <code>codex</code> CLI for the default backend.</p>
+        <p>Latest release: <a href="https://github.com/math-ai-org/mathcode/releases/tag/v0.4.0">MathCode v0.4.0</a>. Requires macOS (arm64) or glibc-based Linux (x86_64 with AVX2), plus the <code>codex</code> CLI for the default backend.</p>
 <pre><code>git clone https://github.com/math-ai-org/mathcode.git
 cd mathcode
 bash setup.sh
 codex auth login
-mathcode</code></pre>
-        <p><code>setup.sh</code> prepares the release checkout, downloads the bundled runtime and Lean toolchain, and installs a user-local <code>mathcode</code> launcher. Try it with:</p>
+./run</code></pre>
+        <p><code>setup.sh</code> prepares the release checkout, downloads the bundled runtime, offers optional Lean/Mathlib installation, and installs a user-local <code>mathcode</code> launcher for new shells. Use <code>--without-lean</code> for a lightweight install, or <code>--with-lean</code> for the full toolchain. Try it with:</p>
 <pre><code>mathcode -p "prove that the square of an even number is even"</code></pre>
         <p>The agent works directly in the selected workspace, and only a successful strict Lean verification certifies a finished proof. A browser UI is available via <code>./run webui</code>.</p>
       </div>
@@ -236,6 +237,13 @@ mathcode</code></pre>
           <div class="column is-4"><div class="pillar-box"><strong>Agent-Directed Proving</strong><p style="margin:.5rem 0 0">The agent writes candidates, inspects goals and diagnostics, and decides what to try next.</p></div></div>
           <div class="column is-4"><div class="pillar-box"><strong>Optional Subgoal Exploration</strong><p style="margin:.5rem 0 0">Subgoals, helper lemmas, branches, and milestones are available as techniques, never a mandatory controller.</p></div></div>
           <div class="column is-4"><div class="pillar-box"><strong>Strict Lean Verification</strong><p style="margin:.5rem 0 0">A fresh final check verifies one declaration; only a successful verification certificate counts as completion.</p></div></div>
+      </div>
+    </div></section>
+    <section id="documentation" class="section content-section"><div class="container">
+      <h2 class="section-title">Documentation</h2>
+      <div class="content"><p>Detailed guides for installation, everyday use, Lean proofs, and configuration. Available in English and Chinese.</p>
+        <p><a class="button" href="docs/">Read the docs &rarr;</a> &nbsp; <a href="docs/index.ZH.html" lang="zh-CN">中文文档 &rarr;</a></p>
+        <p><a href="docs/release/installation.html">Installation</a> &nbsp;&bull;&nbsp; <a href="docs/release/usage.html">CLI &amp; WebUI</a> &nbsp;&bull;&nbsp; <a href="docs/release/lean.html">Lean workflows</a> &nbsp;&bull;&nbsp; <a href="docs/release/configuration.html">Configuration</a></p>
       </div>
     </div></section>
     <section id="citation" class="section content-section"><div class="container">
@@ -255,7 +263,7 @@ mathcode</code></pre>
   </main>
   <footer class="footer"><div class="container"><div class="content has-text-centered">
     <p><a href="#overview">Overview</a> &nbsp;&bull;&nbsp; <a href="#quickstart">Quick Start</a> &nbsp;&bull;&nbsp;
-       <a href="#features">Features</a> &nbsp;&bull;&nbsp; <a href="#citation">Citation</a> &nbsp;&bull;&nbsp;
+       <a href="#features">Features</a> &nbsp;&bull;&nbsp; <a href="docs/">Docs</a> &nbsp;&bull;&nbsp; <a href="#citation">Citation</a> &nbsp;&bull;&nbsp;
        <a href="https://github.com/math-ai-org/mathcode">GitHub</a> &nbsp;&bull;&nbsp;
        <a href="https://github.com/math-ai-org/mathcode/releases/tag/v0.4.0">Release v0.4.0</a> &nbsp;&bull;&nbsp;
        <a href="https://discord.gg/f2AFP9W5">Discord</a> &nbsp;&bull;&nbsp;

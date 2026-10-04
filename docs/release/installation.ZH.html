@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>安装与排障 — MathCode</title><meta name="description" content="环境要求、安装方式、升级与常见问题。">
+<link rel="canonical" href="https://math-ai-org.github.io/mathcode/docs/release/installation.ZH.html"><link rel="stylesheet" href="../site.css"></head>
+<body><a class="skip" href="#content">跳到正文</a>
+<header class="site-header"><a class="brand" href="../../index.html"><span class="monogram">MC</span> MathCode</a><span class="header-label">文档</span><nav aria-label="全站导航"><a href="https://github.com/math-ai-org/mathcode">GitHub ↗</a><a href="installation.html" lang="en" hreflang="en">English</a></nav></header>
+<div class="layout"><aside class="sidebar"><nav aria-label="文档导航"><p class="eyebrow">文档</p><a href="../index.ZH.html">文档首页</a><a href="installation.ZH.html" aria-current="page">安装与排障</a><a href="usage.ZH.html">使用 MathCode</a><a href="lean.ZH.html">Lean 工作流</a><a href="configuration.ZH.html">配置与扩展</a></nav><a class="back" href="../../index.html">← 返回官网</a></aside>
+<main id="content" tabindex="-1"><h1 id="安装与排障">安装与排障</h1>
+<p><a href="installation.html">English</a> · <a href="usage.ZH.html">使用</a> · <a href="configuration.ZH.html">配置</a></p>
+<h2 id="环境要求">环境要求</h2>
+<ul>
+<li>macOS arm64，或采用 glibc、支持 AVX2 的 Linux x86_64。Linux 发行包基于 Ubuntu 22.04 构建。</li>
+<li><code>curl</code>，以及 <code>shasum</code> 或 <code>sha256sum</code>。</li>
+<li>默认后端需要 <code>codex</code> CLI；也可以配置<a href="configuration.ZH.html">其他后端</a>。</li>
+<li>Lean/Mathlib 需要额外约 10 GiB 磁盘空间。Linux 的 Lean 支持还需要 <code>bwrap</code>（<code>bubblewrap</code> 包）与 <code>socat</code>。</li>
+<li>仅使用内置 Python 分析工具时才需要 Python 3.12+。</li>
+</ul>
+<h2 id="选择安装方式">选择安装方式</h2>
+<p>在发行版 checkout 或解压后的安装目录执行：</p>
+<pre tabindex="0"><code class="language-bash">bash setup.sh --with-lean     # CLI、WebUI、Lean 和 Mathlib
+bash setup.sh --without-lean  # 仅 CLI 与 WebUI
+bash setup.sh --install-lean  # 之后补装或修复 Lean
+</code></pre>
+<p>交互式 <code>bash setup.sh</code> 会询问安装方式，默认完整安装；非交互式调用也默认完整安装。</p>
+<p>轻量安装后，第一次获准执行本地 Lean goal、check、verify 或库操作时，可以自动
+补装工具链，并显示安装进度和失败原因。自动补装只作用于发行包自带的
+<code>lean-workspace</code>；远程 <code>LeanSearch</code> 和用户自己的 Lean 项目不会触发安装。</p>
+<p>Setup 按需创建 <code>.env</code>，并在 <code>~/.local/bin/</code> 安装受管理的 <code>mathcode</code> 启动脚本。
+已有配置会保留。安装包自带 CLI、WebUI 与 ripgrep，不需要源码 checkout 或
+<code>node_modules</code>。</p>
+<h2 id="升级与修复">升级与修复</h2>
+<pre tabindex="0"><code class="language-bash">git pull --ff-only           # 适用于 clone 的发行仓库
+bash setup.sh --without-lean # 也可按需选择 --with-lean
+bash setup.sh --status
+</code></pre>
+<p>Setup 检查运行时版本和哈希，从对应 GitHub Release 修复缺失、过旧或无效的文件，
+并在替换已有安装前验证下载内容的校验和。<code>--status</code> 显示 CLI、WebUI、ripgrep
+和 Lean 的状态。升级后请重启正在运行的 WebUI daemon。</p>
+<p><code>bash setup.sh --clean</code> 清理已安装的运行时和工具链，保留 <code>LeanFormalizations/</code>
+中的证明、vault 数据和锁定的 Lake manifest；之后重新执行 setup。
+全部选项见 <code>bash setup.sh --help</code>。</p>
+<h2 id="直接下载-archive">直接下载 archive</h2>
+<p>从 <a href="https://github.com/math-ai-org/mathcode/releases">Releases</a> 下载对应平台的
+<code>.tar.gz</code> 和 <code>SHA256SUMS.txt</code>。用匹配条目验证 archive 后解压，在该目录运行
+setup。Archive 是自包含的，只有需要修复时 setup 才会下载运行时文件。
+手动更新时也要选择正确平台。</p>
+<h2 id="lean-工具链选择">Lean 工具链选择</h2>
+<p>默认使用 <code>.local/elan</code> 中的本地工具链，版本由 <code>lean-workspace/lean-toolchain</code>
+锁定。Setup 保留随包提供的 <code>lake-manifest.json</code>，并要求 <code>MathCodeLean</code> readiness
+构建成功；Mathlib cache 下载失败时可以回退到本地构建。</p>
+<p>若要复用系统安装：</p>
+<pre tabindex="0"><code class="language-bash">MATHCODE_SETUP_USE_SYSTEM_LEAN=1 bash setup.sh --with-lean
+</code></pre>
+<p>Lean 和 Lake 都必须符合锁定版本。Setup 将 Elan proxy 解析为具体可执行文件，
+校验后把路径保存到 <code>.env</code>；不符合要求时回退到包内工具链。选择锁定工具链时会
+忽略外部 <code>ELAN_TOOLCHAIN</code> 覆盖。用户自己的项目仍使用自己的工具链配置。</p>
+<h2 id="常见问题">常见问题</h2>
+<div class="table-scroll" tabindex="0"><table>
+<thead>
+<tr>
+<th>现象</th>
+<th>处理方法</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Setup 后找不到 <code>mathcode</code></td>
+<td>打开新 shell，或直接使用 <code>./run</code>。</td>
+</tr>
+<tr>
+<td><code>exec format error</code> 或 <code>Bad CPU type in executable</code></td>
+<td>重新执行 setup，或下载匹配系统和 CPU 的 archive。</td>
+</tr>
+<tr>
+<td>缺少 Codex 认证</td>
+<td>执行 <code>codex auth login</code>。</td>
+</tr>
+<tr>
+<td>Lean 状态为 deferred</td>
+<td>需要本地 Lean 时执行 <code>bash setup.sh --install-lean</code>。</td>
+</tr>
+<tr>
+<td>升级后 WebUI 仍使用旧默认值</td>
+<td>重启 daemon，并检查设置页的 <strong>Follow application defaults</strong>。</td>
+</tr>
+</tbody></table>
+</div><p>Setup 只替换自己创建的启动脚本。可用 <code>MATHCODE_INSTALL_BIN_DIR</code> 指定其他目录，
+相对路径以安装包根目录为基准。写入启动脚本失败时仍可通过 <code>./run</code> 使用安装包。</p>
+<footer class="article-footer"><a href="installation.ZH.md">查看 Markdown 原文 ↗</a><a href="usage.ZH.html">下一篇：使用 MathCode →</a></footer></main><aside class="toc"><details open><summary>本页目录</summary><nav aria-label="本页目录"><a href="#环境要求">环境要求</a><a href="#选择安装方式">选择安装方式</a><a href="#升级与修复">升级与修复</a><a href="#直接下载-archive">直接下载 archive</a><a href="#lean-工具链选择">Lean 工具链选择</a><a href="#常见问题">常见问题</a></nav></details></aside></div>
+<footer class="site-footer">MathCode · 数学编码助手</footer></body></html>

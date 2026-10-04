@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Configuration — MathCode</title><meta name="description" content="Providers, models, project skills and plugins.">
+<link rel="canonical" href="https://math-ai-org.github.io/mathcode/docs/release/configuration.html"><link rel="stylesheet" href="../site.css"></head>
+<body><a class="skip" href="#content">Skip to content</a>
+<header class="site-header"><a class="brand" href="../../index.html"><span class="monogram">MC</span> MathCode</a><span class="header-label">Docs</span><nav aria-label="Site navigation"><a href="https://github.com/math-ai-org/mathcode">GitHub ↗</a><a href="configuration.ZH.html" lang="zh-CN" hreflang="zh-CN">中文</a></nav></header>
+<div class="layout"><aside class="sidebar"><nav aria-label="Documentation navigation"><p class="eyebrow">Documentation</p><a href="../index.html">Introduction</a><a href="installation.html">Installation</a><a href="usage.html">Using MathCode</a><a href="lean.html">Lean workflows</a><a href="configuration.html" aria-current="page">Configuration</a></nav><a class="back" href="../../index.html">← Back to website</a></aside>
+<main id="content" tabindex="-1"><h1 id="configuration-and-extensions">Configuration and extensions</h1>
+<p><a href="configuration.ZH.html">中文</a> · <a href="installation.html">Installation</a> · <a href="usage.html">Usage</a></p>
+<h2 id="backend-and-model">Backend and model</h2>
+<p>The default route uses Codex OAuth. Run <code>codex auth login</code>; no <code>.env</code> edits are
+needed for a new installation. The release template selects GPT-6 Astra with
+medium reasoning effort. To update an older configuration explicitly:</p>
+<pre tabindex="0"><code class="language-env">OPENAI_MODEL=gpt-6-astra
+OPENAI_SMALL_MODEL=gpt-6-astra
+OPENAI_REASONING_EFFORT=medium
+MATHCODE_EFFORT_LEVEL=medium
+</code></pre>
+<p>For an Anthropic-compatible backend:</p>
+<pre tabindex="0"><code class="language-env">MATHCODE_USE_OPENAI=0
+ANTHROPIC_API_KEY=sk-ant-...
+ANTHROPIC_MODEL=claude-sonnet-4-5
+</code></pre>
+<p>OpenRouter, Bedrock, Vertex and Foundry settings are documented in the bundle&#39;s
+<code>.env.example</code>. Their SDKs are bundled; Bedrock, Vertex and Foundry use their
+own provider credentials. <code>./run</code> sources <code>.env</code> before starting MathCode.</p>
+<p>System prompts are selected for the actual request model: Fable uses the
+MathCode/Fable prompt, other recognized Claude models use the Claude template,
+and remaining models use Codex/Astra. Custom system and agent prompts retain
+precedence. This selection does not change the chosen model or effort level.</p>
+<p>Codex Responses requests use streaming transport. <code>stream</code> is not a MathCode
+setting; do not add it to <code>settings.json</code> to work around an API error.</p>
+<h2 id="webui-settings">WebUI settings</h2>
+<p>WebUI routing is separate from the CLI <code>.env</code>. New settings enable <strong>Follow
+application defaults</strong>, taking the installed application&#39;s provider, model and
+effort at startup. Disable it and save to pin a selection. Existing settings
+keep their choices until you opt into following defaults.</p>
+<p>Settings live in <code>$XDG_CONFIG_HOME/mathcode/webui/ui-settings.json</code>, or
+<code>~/.config/mathcode/webui/ui-settings.json</code> by default. <code>git pull</code> does not change
+this file. Restart the daemon after updating the application.</p>
+<p>Provider-key rows support Anthropic and OpenRouter. Codex/OpenAI uses Codex OAuth
+rather than an <code>OPENAI_API_KEY</code> field. WebUI <code>minimal</code> effort is preserved on
+OpenAI/OpenRouter and maps to <code>low</code> on Anthropic-compatible routes.</p>
+<h2 id="skills-tools-and-plugins">Skills, tools and plugins</h2>
+<div class="table-scroll" tabindex="0"><table>
+<thead>
+<tr>
+<th>Extension</th>
+<th>Location and use</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Project skills</td>
+<td><code>.mathcode/skills/&lt;name&gt;/SKILL.md</code>, one directory per skill. Standalone <code>skills/*.md</code> files are not loaded.</td>
+</tr>
+<tr>
+<td>Python tools</td>
+<td><code>tools/*.py</code> with YAML frontmatter; discovered at startup. Python 3.12+ is required.</td>
+</tr>
+<tr>
+<td>Plugins</td>
+<td>Folders containing <code>.mathcode-plugin/plugin.json</code>; load with <code>--plugin-dir</code> or install from Git with <code>/plugin</code>.</td>
+</tr>
+</tbody></table>
+</div><p>Bundled Python tools include <code>axiom-checker</code>, <code>lib-search</code> and <code>proof-stats</code>.
+They remain available outside the bundle workspace; a workspace tool with the
+same normalized name overrides the bundled one. <code>lib-search</code> requires an active
+vault; see <a href="lean.html">Lean workflows</a>.</p>
+<p>Custom agents require nonblank descriptions and prompts. Optional blank initial
+prompts are ignored. MCP XAA IdP setup requires a nonblank HTTPS issuer:
+<code>mathcode mcp xaa setup --issuer ...</code> rejects HTTP URLs, including loopback,
+before saving settings.</p>
+<footer class="article-footer"><a href="configuration.md">View Markdown source ↗</a></footer></main><aside class="toc"><details open><summary>On this page</summary><nav aria-label="On this page"><a href="#backend-and-model">Backend and model</a><a href="#webui-settings">WebUI settings</a><a href="#skills-tools-and-plugins">Skills, tools and plugins</a></nav></details></aside></div>
+<footer class="site-footer">MathCode · A mathematical coding agent</footer></body></html>

@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>使用 MathCode — MathCode</title><meta name="description" content="CLI、WebUI、目标、会话与定时任务。">
+<link rel="canonical" href="https://math-ai-org.github.io/mathcode/docs/release/usage.ZH.html"><link rel="stylesheet" href="../site.css"></head>
+<body><a class="skip" href="#content">跳到正文</a>
+<header class="site-header"><a class="brand" href="../../index.html"><span class="monogram">MC</span> MathCode</a><span class="header-label">文档</span><nav aria-label="全站导航"><a href="https://github.com/math-ai-org/mathcode">GitHub ↗</a><a href="usage.html" lang="en" hreflang="en">English</a></nav></header>
+<div class="layout"><aside class="sidebar"><nav aria-label="文档导航"><p class="eyebrow">文档</p><a href="../index.ZH.html">文档首页</a><a href="installation.ZH.html">安装与排障</a><a href="usage.ZH.html" aria-current="page">使用 MathCode</a><a href="lean.ZH.html">Lean 工作流</a><a href="configuration.ZH.html">配置与扩展</a></nav><a class="back" href="../../index.html">← 返回官网</a></aside>
+<main id="content" tabindex="-1"><h1 id="使用-mathcode">使用 MathCode</h1>
+<p><a href="usage.html">English</a> · <a href="installation.ZH.html">安装</a> · <a href="lean.ZH.html">Lean 工作流</a></p>
+<h2 id="终端">终端</h2>
+<pre tabindex="0"><code class="language-bash">mathcode                        # 交互式会话
+mathcode -p &quot;解释这段代码&quot;       # 单次提问
+echo &quot;hello&quot; | mathcode -p
+mathcode --help
+</code></pre>
+<p>Shell 尚未加载安装的启动脚本时，可在包目录用 <code>./run</code> 代替 <code>mathcode</code>。
+Agent 在选定的工作区执行任务。</p>
+<p>常用交互命令包括 <code>/context</code>、<code>/config</code>、<code>/stats</code>、<code>/tasks</code>、<code>/branch</code>、<code>/rename</code>，
+以及复制指定回复的 <code>/copy [N]</code>。<code>--from-pr TERM</code> 打开关联 PR 的会话选择器；
+也可以传 PR 编号或 URL 来选择匹配会话。</p>
+<p><code>/plan</code> 默认把计划保存在 <code>~/.mathcode/plans/</code>，可用 <code>MATHCODE_CONFIG_DIR</code>
+更改配置根目录。若要把计划放在项目中，在 project 或 local settings 设置
+<code>plansDirectory</code>，路径相对于项目根目录。</p>
+<h2 id="浏览器界面">浏览器界面</h2>
+<pre tabindex="0"><code class="language-bash">./run webui
+./run webui --no-browser
+</code></pre>
+<p>打开终端打印的本地认证 URL。Wrapper 会加载包内 <code>.env</code> 与 Lean 默认配置，
+直接运行 <code>./mathcode-webui</code> 也会使用同一 wrapper。请勿分享带 token 的 URL。</p>
+<p>交互式 CLI 会话中可用 <code>/webui</code>（或 <code>/webUI</code>）管理 daemon：</p>
+<pre tabindex="0"><code class="language-text">/webui --no-browser
+/webui --port 18731
+/webui --status
+/webui --stop
+</code></pre>
+<p>Slash command 指定的 port 和 workspace 优先于 <code>.env</code> 同名设置。
+发行包不支持仅供源码模式使用的 <code>--rebuild</code>。</p>
+<p>消息支持 Markdown 与 KaTeX 数学公式，包括 <code>$...$</code>、<code>$$...$$</code>、<code>\(...\)</code> 和
+<code>\[...\]</code>。标为 <code>svg</code> 的 fenced code block 可显示图表；脚本、外部资源和
+不安全 SVG 元素会被拒绝或移除。</p>
+<p>Assistant 回复中已闭合的 <code>js</code> 或 <code>javascript</code> 代码块提供 Run、Stop、Reset，
+供用户主动运行浏览器本地预览。单次限制为两秒，不能访问 WebUI DOM、存储、网络
+或子 worker；控制台输出与错误显示在会话中。其他代码块保持纯文本。</p>
+<h2 id="目标">目标</h2>
+<pre tabindex="0"><code class="language-text">/goal 100k 证明主定理
+/goal --budget 100k --max-continuations 10 证明主定理
+/goal status
+/goal pause
+/goal resume
+/goal clear
+</code></pre>
+<p>Goal 延续当前会话。预算支持正整数、整数值小数和 <code>k</code>/<code>m</code>/<code>b</code> 后缀，
+也支持 <code>--budget=&lt;value&gt;</code> 与 <code>--max-continuations=&lt;N&gt;</code> 写法。
+命令帮助见 <code>/goal help</code>。</p>
+<div class="table-scroll" tabindex="0"><table>
+<thead>
+<tr>
+<th>设置</th>
+<th>用途</th>
+<th>默认值</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>MATHCODE_GOAL_MAX_TOKEN_BUDGET</code></td>
+<td>可接受的最大目标预算</td>
+<td><code>1000000000</code></td>
+</tr>
+<tr>
+<td><code>MATHCODE_MAX_CHAINED_COMMAND_INPUTS</code></td>
+<td>嵌套 slash-command 提交次数上限</td>
+<td><code>25</code></td>
+</tr>
+</tbody></table>
+</div><h2 id="effort-与定时任务">Effort 与定时任务</h2>
+<p><code>--effort &lt;level&gt;</code> 或 <code>/effort &lt;level&gt;</code> 支持 <code>low</code>、<code>medium</code>、<code>high</code>、<code>max</code>
+或正整数。<code>/effort auto</code> 和 <code>/effort unset</code> 恢复模型默认值。
+各后端的推理设置见<a href="configuration.ZH.html">配置指南</a>。</p>
+<pre tabindex="0"><code class="language-text">/loop 10m 检查部署
+/loop 1h /standup 1
+</code></pre>
+<p>短期提醒和监控可用 loop；需要重启后继续保留时，在交互会话中创建持久化定时任务。</p>
+<h2 id="诊断与保存的结果">诊断与保存的结果</h2>
+<p>工具错误保留可操作的原因，包括权限拒绝、参数校验失败、Lean 诊断与 MCP 错误。
+<code>/config</code> 中的 <strong>Show tool-use warnings</strong> 控制非错误运行时警告事件，
+不会对 Agent 隐藏工具错误或需要处理的工具调用诊断。</p>
+<p>WebFetch 与 MCP 的二进制结果可以保存在会话的 <code>tool-results</code> 目录中。
+工具结果会给出已保存的路径，或说明保存失败的原因。已识别的类型保留对应扩展名，
+未知二进制数据保留为 <code>.bin</code>。</p>
+<p>覆盖已有文件前，Agent 必须先完整读取文件且不显式限制行数；部分或截断读取不够。
+文本编码损坏时，需要先修复编码，再由 Write 或 NotebookEdit 替换文件。
+工具结果会提供具体校验和恢复说明，反馈问题时请保留这些内容。</p>
+<footer class="article-footer"><a href="usage.ZH.md">查看 Markdown 原文 ↗</a><a href="lean.ZH.html">下一篇：Lean 工作流 →</a></footer></main><aside class="toc"><details open><summary>本页目录</summary><nav aria-label="本页目录"><a href="#终端">终端</a><a href="#浏览器界面">浏览器界面</a><a href="#目标">目标</a><a href="#effort-与定时任务">Effort 与定时任务</a><a href="#诊断与保存的结果">诊断与保存的结果</a></nav></details></aside></div>
+<footer class="site-footer">MathCode · 数学编码助手</footer></body></html>

@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Using MathCode — MathCode</title><meta name="description" content="CLI, WebUI, goals, sessions and scheduled tasks.">
+<link rel="canonical" href="https://math-ai-org.github.io/mathcode/docs/release/usage.html"><link rel="stylesheet" href="../site.css"></head>
+<body><a class="skip" href="#content">Skip to content</a>
+<header class="site-header"><a class="brand" href="../../index.html"><span class="monogram">MC</span> MathCode</a><span class="header-label">Docs</span><nav aria-label="Site navigation"><a href="https://github.com/math-ai-org/mathcode">GitHub ↗</a><a href="usage.ZH.html" lang="zh-CN" hreflang="zh-CN">中文</a></nav></header>
+<div class="layout"><aside class="sidebar"><nav aria-label="Documentation navigation"><p class="eyebrow">Documentation</p><a href="../index.html">Introduction</a><a href="installation.html">Installation</a><a href="usage.html" aria-current="page">Using MathCode</a><a href="lean.html">Lean workflows</a><a href="configuration.html">Configuration</a></nav><a class="back" href="../../index.html">← Back to website</a></aside>
+<main id="content" tabindex="-1"><h1 id="using-mathcode">Using MathCode</h1>
+<p><a href="usage.ZH.html">中文</a> · <a href="installation.html">Installation</a> · <a href="lean.html">Lean workflows</a></p>
+<h2 id="terminal">Terminal</h2>
+<pre tabindex="0"><code class="language-bash">mathcode                         # interactive session
+mathcode -p &quot;explain this code&quot;  # one prompt
+echo &quot;hello&quot; | mathcode -p
+mathcode --help
+</code></pre>
+<p>Use <code>./run</code> instead of <code>mathcode</code> from the bundle directory until your shell
+picks up the installed launcher. The agent works in the selected workspace.</p>
+<p>Useful interactive commands include <code>/context</code>, <code>/config</code>, <code>/stats</code>, <code>/tasks</code>,
+<code>/branch</code>, <code>/rename</code>, and <code>/copy [N]</code> to copy a selected answer. <code>--from-pr TERM</code>
+opens the PR-linked session picker; a PR number or URL selects matching sessions.</p>
+<p><code>/plan</code> saves plans under <code>~/.mathcode/plans/</code> by default. <code>MATHCODE_CONFIG_DIR</code>
+relocates the config home. To keep plans in the project, set <code>plansDirectory</code>
+in project or local settings to a path relative to the project root.</p>
+<h2 id="browser-interface">Browser interface</h2>
+<pre tabindex="0"><code class="language-bash">./run webui
+./run webui --no-browser
+</code></pre>
+<p>Open the authenticated local URL printed in the terminal. The wrapper loads the
+bundle <code>.env</code> and Lean defaults. Running <code>./mathcode-webui</code> directly uses the
+same wrapper. Keep the token-bearing URL private.</p>
+<p>Inside an interactive CLI session, <code>/webui</code> (also <code>/webUI</code>) manages the daemon:</p>
+<pre tabindex="0"><code class="language-text">/webui --no-browser
+/webui --port 18731
+/webui --status
+/webui --stop
+</code></pre>
+<p>The slash command&#39;s port and workspace take precedence over matching <code>.env</code>
+values. Release bundles do not support the source-only <code>--rebuild</code> option.</p>
+<p>Messages support Markdown and KaTeX math with <code>$...$</code>, <code>$$...$$</code>, <code>\(...\)</code> and
+<code>\[...\]</code>. A fenced <code>svg</code> block can render a diagram; scripts, external
+resources and unsafe SVG elements are rejected or removed.</p>
+<p>Closed assistant <code>js</code> or <code>javascript</code> code blocks offer Run, Stop and Reset for
+an opt-in browser-local preview. Each run is limited to two seconds and cannot
+access the WebUI DOM, storage, network or child workers. Console output and
+errors appear in the transcript. Other code blocks remain plain code.</p>
+<h2 id="goals">Goals</h2>
+<pre tabindex="0"><code class="language-text">/goal 100k prove the main theorem
+/goal --budget 100k --max-continuations 10 prove the main theorem
+/goal status
+/goal pause
+/goal resume
+/goal clear
+</code></pre>
+<p>Goals continue the current session. Budgets accept positive integers,
+integer-valued decimals and <code>k</code>/<code>m</code>/<code>b</code> suffixes. <code>--budget=&lt;value&gt;</code> and
+<code>--max-continuations=&lt;N&gt;</code> also work. See <code>/goal help</code> for the command interface.</p>
+<div class="table-scroll" tabindex="0"><table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Purpose</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>MATHCODE_GOAL_MAX_TOKEN_BUDGET</code></td>
+<td>Maximum accepted goal budget</td>
+<td><code>1000000000</code></td>
+</tr>
+<tr>
+<td><code>MATHCODE_MAX_CHAINED_COMMAND_INPUTS</code></td>
+<td>Maximum nested slash-command submissions</td>
+<td><code>25</code></td>
+</tr>
+</tbody></table>
+</div><h2 id="effort-and-schedules">Effort and schedules</h2>
+<p>Use <code>--effort &lt;level&gt;</code> or <code>/effort &lt;level&gt;</code> with <code>low</code>, <code>medium</code>, <code>high</code>, <code>max</code>,
+or a positive integer. <code>/effort auto</code> and <code>/effort unset</code> return to model defaults.
+Provider-specific reasoning settings are in the <a href="configuration.html">configuration guide</a>.</p>
+<pre tabindex="0"><code class="language-text">/loop 10m check the deploy
+/loop 1h /standup 1
+</code></pre>
+<p>Use loops for short-lived reminders and monitoring. Create a durable schedule
+in the interactive session when it must survive restarts.</p>
+<h2 id="diagnostics-and-saved-results">Diagnostics and saved results</h2>
+<p>Tool errors retain actionable reasons, including permission denials, validation
+failures, Lean diagnostics and MCP error details. In <code>/config</code>, <strong>Show tool-use
+warnings</strong> controls non-error runtime warning events; it does not hide tool
+errors or actionable tool-call diagnostics from the agent.</p>
+<p>Binary WebFetch and MCP results can be saved in the session&#39;s <code>tool-results</code>
+directory. The tool result reports the saved path, or explains why persistence
+failed. Recognized types keep their extension; unknown data remains <code>.bin</code>.</p>
+<p>To overwrite an existing file, the agent must first read the complete file
+without an explicit line limit. A partial or truncated read is insufficient.
+Malformed text encodings must be repaired before Write or NotebookEdit can
+replace the file. Concrete validation and recovery instructions appear in tool
+results; preserve them when reporting a problem.</p>
+<footer class="article-footer"><a href="usage.md">View Markdown source ↗</a><a href="lean.html">Next: Lean workflows →</a></footer></main><aside class="toc"><details open><summary>On this page</summary><nav aria-label="On this page"><a href="#terminal">Terminal</a><a href="#browser-interface">Browser interface</a><a href="#goals">Goals</a><a href="#effort-and-schedules">Effort and schedules</a><a href="#diagnostics-and-saved-results">Diagnostics and saved results</a></nav></details></aside></div>
+<footer class="site-footer">MathCode · A mathematical coding agent</footer></body></html>

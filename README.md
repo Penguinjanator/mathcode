@@ -53,6 +53,8 @@ existing checkout, run `git pull --ff-only` and rerun setup.
 
 ## Documentation
 
+Read the [online documentation](https://math-ai-org.github.io/mathcode/docs/).
+
 | Guide | Contents |
 | --- | --- |
 | [Installation](docs/release/installation.md) | Requirements, install modes, upgrades, toolchains, troubleshooting |

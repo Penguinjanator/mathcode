@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>配置与扩展 — MathCode</title><meta name="description" content="后端、模型、项目技能与插件。">
+<link rel="canonical" href="https://math-ai-org.github.io/mathcode/docs/release/configuration.ZH.html"><link rel="stylesheet" href="../site.css"></head>
+<body><a class="skip" href="#content">跳到正文</a>
+<header class="site-header"><a class="brand" href="../../index.html"><span class="monogram">MC</span> MathCode</a><span class="header-label">文档</span><nav aria-label="全站导航"><a href="https://github.com/math-ai-org/mathcode">GitHub ↗</a><a href="configuration.html" lang="en" hreflang="en">English</a></nav></header>
+<div class="layout"><aside class="sidebar"><nav aria-label="文档导航"><p class="eyebrow">文档</p><a href="../index.ZH.html">文档首页</a><a href="installation.ZH.html">安装与排障</a><a href="usage.ZH.html">使用 MathCode</a><a href="lean.ZH.html">Lean 工作流</a><a href="configuration.ZH.html" aria-current="page">配置与扩展</a></nav><a class="back" href="../../index.html">← 返回官网</a></aside>
+<main id="content" tabindex="-1"><h1 id="配置与扩展">配置与扩展</h1>
+<p><a href="configuration.html">English</a> · <a href="installation.ZH.html">安装</a> · <a href="usage.ZH.html">使用</a></p>
+<h2 id="后端与模型">后端与模型</h2>
+<p>默认路线使用 Codex OAuth，执行 <code>codex auth login</code> 即可，新安装无需修改 <code>.env</code>。
+发行模板选择 GPT-6 Astra 与 medium 推理强度。若要显式更新旧配置：</p>
+<pre tabindex="0"><code class="language-env">OPENAI_MODEL=gpt-6-astra
+OPENAI_SMALL_MODEL=gpt-6-astra
+OPENAI_REASONING_EFFORT=medium
+MATHCODE_EFFORT_LEVEL=medium
+</code></pre>
+<p>Anthropic 兼容后端示例：</p>
+<pre tabindex="0"><code class="language-env">MATHCODE_USE_OPENAI=0
+ANTHROPIC_API_KEY=sk-ant-...
+ANTHROPIC_MODEL=claude-sonnet-4-5
+</code></pre>
+<p>OpenRouter、Bedrock、Vertex 和 Foundry 的设置见包内 <code>.env.example</code>。
+所需 SDK 已打包；Bedrock、Vertex、Foundry 使用各自的 provider 凭据。
+<code>./run</code> 在启动 MathCode 前会加载 <code>.env</code>。</p>
+<p>System prompt 根据实际请求模型选择：Fable 使用 MathCode/Fable prompt，其他
+已识别 Claude 模型使用 Claude 模板，其余模型使用 Codex/Astra。
+自定义 system 与 agent prompt 优先级不变；这种选择不改变模型或 effort 设置。</p>
+<p>Codex Responses 请求使用流式传输。<code>stream</code> 不是 MathCode 设置项，
+不要为解决 API 错误而把它写入 <code>settings.json</code>。</p>
+<h2 id="webui-设置">WebUI 设置</h2>
+<p>WebUI 路由独立于 CLI <code>.env</code>。新设置默认启用 <strong>Follow application defaults</strong>，
+启动时采用当前应用的 provider、model 和 effort。关闭该选项并保存可以固定选择。
+已有设置会保留原选择，直到手动启用跟随默认值。</p>
+<p>设置文件位于 <code>$XDG_CONFIG_HOME/mathcode/webui/ui-settings.json</code>，默认是
+<code>~/.config/mathcode/webui/ui-settings.json</code>。<code>git pull</code> 不修改该文件；
+更新应用后请重启 daemon。</p>
+<p>Provider-key 行支持 Anthropic 和 OpenRouter。Codex/OpenAI 使用 Codex OAuth，
+不使用 <code>OPENAI_API_KEY</code> 字段。WebUI 的 <code>minimal</code> effort 在 OpenAI/OpenRouter
+路线保留，在 Anthropic 兼容路线映射为 <code>low</code>。</p>
+<h2 id="技能工具与插件">技能、工具与插件</h2>
+<div class="table-scroll" tabindex="0"><table>
+<thead>
+<tr>
+<th>扩展</th>
+<th>位置与用法</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>项目技能</td>
+<td><code>.mathcode/skills/&lt;name&gt;/SKILL.md</code>，每个技能一个目录；独立的 <code>skills/*.md</code> 不会被加载。</td>
+</tr>
+<tr>
+<td>Python 工具</td>
+<td>带 YAML frontmatter 的 <code>tools/*.py</code>，启动时发现；需要 Python 3.12+。</td>
+</tr>
+<tr>
+<td>插件</td>
+<td>含 <code>.mathcode-plugin/plugin.json</code> 的目录，通过 <code>--plugin-dir</code> 加载，或用 <code>/plugin</code> 从 Git 安装。</td>
+</tr>
+</tbody></table>
+</div><p>内置 Python 工具包括 <code>axiom-checker</code>、<code>lib-search</code> 和 <code>proof-stats</code>。
+从包目录之外启动时仍可使用；工作区中规范化后同名的工具会覆盖内置版本。
+<code>lib-search</code> 需要激活 vault，见 <a href="lean.ZH.html">Lean 工作流</a>。</p>
+<p>自定义 Agent 的 description 与 prompt 不能为空，可选的空 initial prompt 会被忽略。
+MCP XAA IdP 配置要求非空 HTTPS issuer：<code>mathcode mcp xaa setup --issuer ...</code>
+会在写入设置前拒绝 HTTP URL，包括 loopback 地址。</p>
+<footer class="article-footer"><a href="configuration.ZH.md">查看 Markdown 原文 ↗</a></footer></main><aside class="toc"><details open><summary>本页目录</summary><nav aria-label="本页目录"><a href="#后端与模型">后端与模型</a><a href="#webui-设置">WebUI 设置</a><a href="#技能工具与插件">技能、工具与插件</a></nav></details></aside></div>
+<footer class="site-footer">MathCode · 数学编码助手</footer></body></html>

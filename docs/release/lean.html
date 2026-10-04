@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lean workflows — MathCode</title><meta name="description" content="Proof verification, theorem libraries and Obsidian.">
+<link rel="canonical" href="https://math-ai-org.github.io/mathcode/docs/release/lean.html"><link rel="stylesheet" href="../site.css"></head>
+<body><a class="skip" href="#content">Skip to content</a>
+<header class="site-header"><a class="brand" href="../../index.html"><span class="monogram">MC</span> MathCode</a><span class="header-label">Docs</span><nav aria-label="Site navigation"><a href="https://github.com/math-ai-org/mathcode">GitHub ↗</a><a href="lean.ZH.html" lang="zh-CN" hreflang="zh-CN">中文</a></nav></header>
+<div class="layout"><aside class="sidebar"><nav aria-label="Documentation navigation"><p class="eyebrow">Documentation</p><a href="../index.html">Introduction</a><a href="installation.html">Installation</a><a href="usage.html">Using MathCode</a><a href="lean.html" aria-current="page">Lean workflows</a><a href="configuration.html">Configuration</a></nav><a class="back" href="../../index.html">← Back to website</a></aside>
+<main id="content" tabindex="-1"><h1 id="lean-workflows">Lean workflows</h1>
+<p><a href="lean.ZH.html">中文</a> · <a href="installation.html">Installation</a> · <a href="usage.html">Usage</a></p>
+<h2 id="proof-tools">Proof tools</h2>
+<p>MathCode works directly on Lean files in the selected workspace. The agent
+chooses tools as needed; <code>/lean</code> provides optional guidance.</p>
+<div class="table-scroll" tabindex="0"><table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Use</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>LeanGoal</code></td>
+<td>Inspect a goal at an explicit source position.</td>
+</tr>
+<tr>
+<td><code>LeanCheck</code></td>
+<td>Compile a file or temporary candidate for feedback.</td>
+</tr>
+<tr>
+<td><code>LeanSearch</code></td>
+<td>Search declarations through one selected provider.</td>
+</tr>
+<tr>
+<td><code>LeanVerify</code></td>
+<td>Strictly verify one fully qualified declaration.</td>
+</tr>
+</tbody></table>
+</div><p>Only a successful <code>LeanVerify</code> result with <code>data.verified=true</code> certifies
+completion. Its default timeout is 1,200 seconds; <code>timeout_s</code> can be set up to
+3,600 seconds. Goal/check feedback alone is not a certificate.</p>
+<p>The agent may use helper lemmas, subgoals, branching and theorem reuse. Atomic
+proof tools do not silently store theorems, add axioms, or update a vault.</p>
+<h2 id="theorem-library">Theorem library</h2>
+<pre tabindex="0"><code class="language-text">/theorem-store store &lt;file&gt; &lt;qualified-declaration&gt;
+/theorem-store sync
+/theorem-store check
+/theorem-store status
+</code></pre>
+<p><code>store</code> verifies and stores one explicit theorem. It rechecks the source and
+dependencies, verifies the renamed declaration in <code>Stored.lean</code>, and builds an
+importable module. Failed publication rolls back the library update. Compilation
+and publication each have a 300-second build budget.</p>
+<p><code>sync</code> discovers candidates and asks which declarations to store. <code>check</code>
+compile-checks the assembled library; <code>status</code> reports stored count and vault
+information. <code>LibSearch</code> is available only with an active vault through
+<code>MATHCODE_OBSIDIAN_VAULT</code> or <code>/obsidian on</code>. Without one, use <code>LeanSearch</code>.</p>
+<h2 id="axiom-library">Axiom library</h2>
+<pre tabindex="0"><code class="language-text">/axiomatize &quot;A is faster than B&quot;
+/axiomatize list
+/axiomatize check
+/axiomatize remove &lt;name&gt;
+</code></pre>
+<p>Declarations are stored per vault with Lean compile checks and a consistency
+review. Import or reference them explicitly when they belong in the proof
+context. Atomic Lean calls do not inject stored assumptions automatically.</p>
+<h2 id="obsidian">Obsidian</h2>
+<pre tabindex="0"><code class="language-text">/obsidian on
+/obsidian off
+/obsidian generate
+</code></pre>
+<p>Use <code>generate</code> after changing proofs, then open the vault in Obsidian Graph View
+to inspect dependencies. Lemma notes include definitions queried from Mathlib.
+Generation updates MathCode-managed notes and recognized legacy projections;
+it preserves unrelated user notes and fails on conflicting filenames.</p>
+<p>Paper catalog IDs must not collide. If another paper already has the ID derived
+from a title and authors, choose a distinct ID or another vault. Dependency-cycle
+errors identify the involved claims and how to repair the catalog.</p>
+<h2 id="optional-feedback-backends">Optional feedback backends</h2>
+<p>Eligible generic compile callers can use the in-process REPL with
+<code>MATHCODE_LEAN_REPL=1</code>. Atomic proof tools do not use that cache.</p>
+<p>On macOS, an external Kimina Lean Server can provide <code>LeanGoal</code> and <code>LeanCheck</code>
+feedback:</p>
+<pre tabindex="0"><code class="language-env">MATHCODE_KIMINA_SERVER=1
+MATHCODE_KIMINA_CMD=&quot;/absolute/path/to/kimina-lean-server/.venv/bin/python -m server&quot;
+MATHCODE_KIMINA_CWD=/absolute/path/to/kimina-lean-server
+MATHCODE_KIMINA_PROJECT_ROOT=/absolute/path/to/served-lean-project
+</code></pre>
+<p>The declared project and Lean version must match the current project. Start
+Kimina directly with Python; any virtualenv must be below <code>MATHCODE_KIMINA_CWD</code>.
+MathCode launches it in a loopback-only sandbox without provider credentials,
+with writes limited to private scratch space. Setup, compatibility or transport
+failures fall back to the pinned subprocess and report a warning.</p>
+<p>Kimina feedback is not a completion certificate. <code>LeanVerify</code> and isolated paper
+agents always use fresh isolated subprocesses. Linux and Windows use pinned
+subprocesses for this feedback path; the release archives themselves support
+only the platforms listed in the <a href="installation.html">installation guide</a>.</p>
+<footer class="article-footer"><a href="lean.md">View Markdown source ↗</a><a href="configuration.html">Next: Configuration →</a></footer></main><aside class="toc"><details open><summary>On this page</summary><nav aria-label="On this page"><a href="#proof-tools">Proof tools</a><a href="#theorem-library">Theorem library</a><a href="#axiom-library">Axiom library</a><a href="#obsidian">Obsidian</a><a href="#optional-feedback-backends">Optional feedback backends</a></nav></details></aside></div>
+<footer class="site-footer">MathCode · A mathematical coding agent</footer></body></html>

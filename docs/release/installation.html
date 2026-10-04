@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Installation — MathCode</title><meta name="description" content="Requirements, install modes, upgrades and troubleshooting.">
+<link rel="canonical" href="https://math-ai-org.github.io/mathcode/docs/release/installation.html"><link rel="stylesheet" href="../site.css"></head>
+<body><a class="skip" href="#content">Skip to content</a>
+<header class="site-header"><a class="brand" href="../../index.html"><span class="monogram">MC</span> MathCode</a><span class="header-label">Docs</span><nav aria-label="Site navigation"><a href="https://github.com/math-ai-org/mathcode">GitHub ↗</a><a href="installation.ZH.html" lang="zh-CN" hreflang="zh-CN">中文</a></nav></header>
+<div class="layout"><aside class="sidebar"><nav aria-label="Documentation navigation"><p class="eyebrow">Documentation</p><a href="../index.html">Introduction</a><a href="installation.html" aria-current="page">Installation</a><a href="usage.html">Using MathCode</a><a href="lean.html">Lean workflows</a><a href="configuration.html">Configuration</a></nav><a class="back" href="../../index.html">← Back to website</a></aside>
+<main id="content" tabindex="-1"><h1 id="installation-and-troubleshooting">Installation and troubleshooting</h1>
+<p><a href="installation.ZH.html">中文</a> · <a href="usage.html">Usage</a> · <a href="configuration.html">Configuration</a></p>
+<h2 id="requirements">Requirements</h2>
+<ul>
+<li>macOS arm64, or glibc-based Linux x86_64 with AVX2. Linux releases are built on Ubuntu 22.04.</li>
+<li><code>curl</code> and either <code>shasum</code> or <code>sha256sum</code>.</li>
+<li>The <code>codex</code> CLI for the default backend; see <a href="configuration.html">other providers</a>.</li>
+<li>About 10 GiB of additional disk space for Lean/Mathlib. Linux Lean support also requires <code>bwrap</code> (the <code>bubblewrap</code> package) and <code>socat</code>.</li>
+<li>Python 3.12+ only if you use the bundled Python analysis tools.</li>
+</ul>
+<h2 id="choose-an-install-mode">Choose an install mode</h2>
+<p>From the release checkout or an extracted release bundle:</p>
+<pre tabindex="0"><code class="language-bash">bash setup.sh --with-lean     # CLI, WebUI, Lean and Mathlib
+bash setup.sh --without-lean  # CLI and WebUI only
+bash setup.sh --install-lean  # add or repair Lean support later
+</code></pre>
+<p>Interactive <code>bash setup.sh</code> asks which mode to use and defaults to full installation.
+Non-interactive setup also defaults to full installation.</p>
+<p>After a core-only install, the first approved local Lean goal, check, verify, or
+library operation can install the deferred toolchain. Progress and failures are
+shown during installation. This applies only to the bundled <code>lean-workspace</code>;
+remote <code>LeanSearch</code> and caller-owned Lean projects do not trigger installation.</p>
+<p>Setup creates <code>.env</code> if needed and installs a managed <code>mathcode</code> launcher in
+<code>~/.local/bin/</code>. Existing configuration is preserved. The bundle includes CLI,
+WebUI, and ripgrep; a source checkout or <code>node_modules</code> is not required.</p>
+<h2 id="upgrade-and-repair">Upgrade and repair</h2>
+<pre tabindex="0"><code class="language-bash">git pull --ff-only           # for a cloned release checkout
+bash setup.sh --without-lean # or --with-lean, according to your needs
+bash setup.sh --status
+</code></pre>
+<p>Setup checks runtime versions and hashes, repairing missing, stale or invalid
+files from the matching GitHub Release. It verifies the downloaded checksum
+before replacing an existing installation. <code>--status</code> reports CLI, WebUI,
+ripgrep and Lean readiness. Restart a running WebUI daemon after upgrading.</p>
+<p><code>bash setup.sh --clean</code> removes installed runtime/toolchain artifacts while
+preserving proofs in <code>LeanFormalizations/</code>, vault data, and the locked Lake
+manifest. Rerun setup afterwards. See <code>bash setup.sh --help</code> for all flags.</p>
+<h2 id="use-a-downloaded-archive">Use a downloaded archive</h2>
+<p>Download your platform&#39;s <code>.tar.gz</code> and <code>SHA256SUMS.txt</code> from
+<a href="https://github.com/math-ai-org/mathcode/releases">Releases</a>. Check the archive
+against its matching checksum entry, extract it, then run setup from that folder.
+The archive is self-contained; setup downloads runtime files only when repair
+is needed. Keep using the matching platform when updating manually.</p>
+<h2 id="lean-toolchain-selection">Lean toolchain selection</h2>
+<p>The default is a bundle-local toolchain in <code>.local/elan</code>, pinned by
+<code>lean-workspace/lean-toolchain</code>. Setup retains the bundled <code>lake-manifest.json</code>
+and requires a successful <code>MathCodeLean</code> readiness build; failed Mathlib cache
+fetches can fall back to building locally.</p>
+<p>To reuse a system installation, run:</p>
+<pre tabindex="0"><code class="language-bash">MATHCODE_SETUP_USE_SYSTEM_LEAN=1 bash setup.sh --with-lean
+</code></pre>
+<p>Both Lean and Lake must match the pinned version. Setup resolves Elan proxies
+to concrete binaries and saves validated paths in <code>.env</code>; an invalid pair falls
+back to bundle-local Lean. Ambient <code>ELAN_TOOLCHAIN</code> overrides are ignored when
+selecting the pinned toolchain. Custom projects retain their own toolchain setup.</p>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<div class="table-scroll" tabindex="0"><table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>mathcode</code> is not found after setup</td>
+<td>Open a new shell, or use <code>./run</code> immediately.</td>
+</tr>
+<tr>
+<td><code>exec format error</code> or <code>Bad CPU type in executable</code></td>
+<td>Rerun setup or download the archive for your OS and CPU.</td>
+</tr>
+<tr>
+<td>Codex authentication is missing</td>
+<td>Run <code>codex auth login</code>.</td>
+</tr>
+<tr>
+<td>Lean is reported as deferred</td>
+<td>Run <code>bash setup.sh --install-lean</code> when you need local Lean support.</td>
+</tr>
+<tr>
+<td>An upgrade still uses old WebUI defaults</td>
+<td>Restart the daemon and check <strong>Follow application defaults</strong> in Settings.</td>
+</tr>
+</tbody></table>
+</div><p>Setup replaces only launchers it previously created. Use <code>MATHCODE_INSTALL_BIN_DIR</code>
+to select another launcher directory; relative paths are resolved from the bundle
+root. If setup cannot write the launcher, the bundle remains usable through <code>./run</code>.</p>
+<footer class="article-footer"><a href="installation.md">View Markdown source ↗</a><a href="usage.html">Next: Using MathCode →</a></footer></main><aside class="toc"><details open><summary>On this page</summary><nav aria-label="On this page"><a href="#requirements">Requirements</a><a href="#choose-an-install-mode">Choose an install mode</a><a href="#upgrade-and-repair">Upgrade and repair</a><a href="#use-a-downloaded-archive">Use a downloaded archive</a><a href="#lean-toolchain-selection">Lean toolchain selection</a><a href="#troubleshooting">Troubleshooting</a></nav></details></aside></div>
+<footer class="site-footer">MathCode · A mathematical coding agent</footer></body></html>

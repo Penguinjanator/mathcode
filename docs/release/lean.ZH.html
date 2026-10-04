@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lean 工作流 — MathCode</title><meta name="description" content="证明验证、定理与公理库、Obsidian 图谱。">
+<link rel="canonical" href="https://math-ai-org.github.io/mathcode/docs/release/lean.ZH.html"><link rel="stylesheet" href="../site.css"></head>
+<body><a class="skip" href="#content">跳到正文</a>
+<header class="site-header"><a class="brand" href="../../index.html"><span class="monogram">MC</span> MathCode</a><span class="header-label">文档</span><nav aria-label="全站导航"><a href="https://github.com/math-ai-org/mathcode">GitHub ↗</a><a href="lean.html" lang="en" hreflang="en">English</a></nav></header>
+<div class="layout"><aside class="sidebar"><nav aria-label="文档导航"><p class="eyebrow">文档</p><a href="../index.ZH.html">文档首页</a><a href="installation.ZH.html">安装与排障</a><a href="usage.ZH.html">使用 MathCode</a><a href="lean.ZH.html" aria-current="page">Lean 工作流</a><a href="configuration.ZH.html">配置与扩展</a></nav><a class="back" href="../../index.html">← 返回官网</a></aside>
+<main id="content" tabindex="-1"><h1 id="lean-工作流">Lean 工作流</h1>
+<p><a href="lean.html">English</a> · <a href="installation.ZH.html">安装</a> · <a href="usage.ZH.html">使用</a></p>
+<h2 id="证明工具">证明工具</h2>
+<p>MathCode 直接处理选定工作区中的 Lean 文件。Agent 按需选择工具，<code>/lean</code> 提供可选指导。</p>
+<div class="table-scroll" tabindex="0"><table>
+<thead>
+<tr>
+<th>工具</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>LeanGoal</code></td>
+<td>查看明确源码位置的目标。</td>
+</tr>
+<tr>
+<td><code>LeanCheck</code></td>
+<td>编译文件或临时候选，获取反馈。</td>
+</tr>
+<tr>
+<td><code>LeanSearch</code></td>
+<td>通过选定的一个 provider 搜索声明。</td>
+</tr>
+<tr>
+<td><code>LeanVerify</code></td>
+<td>严格验证一个完整限定名的声明。</td>
+</tr>
+</tbody></table>
+</div><p>只有成功的 <code>LeanVerify</code> 结果中 <code>data.verified=true</code> 才能判定证明完成。
+默认超时为 1200 秒，<code>timeout_s</code> 可设到 3600 秒。Goal/check 反馈本身不是完成证书。</p>
+<p>Agent 可以使用辅助引理、子目标、分支和定理复用。原子证明工具不会隐式保存定理、
+添加公理或更新 vault。</p>
+<h2 id="定理库">定理库</h2>
+<pre tabindex="0"><code class="language-text">/theorem-store store &lt;file&gt; &lt;qualified-declaration&gt;
+/theorem-store sync
+/theorem-store check
+/theorem-store status
+</code></pre>
+<p><code>store</code> 验证并存储一个显式指定的定理：重新检查源码与依赖，在 <code>Stored.lean</code>
+中验证重命名后的声明，再构建可导入模块。发布失败会回滚库更新。
+编译和发布分别有 300 秒构建预算。</p>
+<p><code>sync</code> 发现候选并询问要保存哪些声明；<code>check</code> 编译检查整库；<code>status</code> 显示存储
+数量与 vault 信息。仅通过 <code>MATHCODE_OBSIDIAN_VAULT</code> 或 <code>/obsidian on</code> 激活
+vault 后才会提供 <code>LibSearch</code>，否则可用 <code>LeanSearch</code>。</p>
+<h2 id="公理库">公理库</h2>
+<pre tabindex="0"><code class="language-text">/axiomatize &quot;A 比 B 快&quot;
+/axiomatize list
+/axiomatize check
+/axiomatize remove &lt;name&gt;
+</code></pre>
+<p>声明按 vault 保存，经过 Lean 编译检查与一致性审查。需要把这些假设放入证明上下文
+时，请显式导入或引用；原子 Lean 调用不会自动注入已保存的假设。</p>
+<h2 id="obsidian">Obsidian</h2>
+<pre tabindex="0"><code class="language-text">/obsidian on
+/obsidian off
+/obsidian generate
+</code></pre>
+<p>修改证明后执行 <code>generate</code>，再用 Obsidian Graph View 查看依赖。引理笔记包含
+从 Mathlib 查询的定义。生成操作会更新 MathCode 管理的笔记及可识别的旧投影，
+保留其他用户笔记，遇到冲突文件名则失败。</p>
+<p>论文 catalog ID 不能冲突。如果根据标题与作者生成的 ID 已属于另一篇论文，
+请使用不同 ID 或另一个 vault。依赖环错误会指出相关 claim 和 catalog 修复方法。</p>
+<h2 id="可选反馈后端">可选反馈后端</h2>
+<p>符合条件的通用编译调用可以通过 <code>MATHCODE_LEAN_REPL=1</code> 使用进程内 REPL。
+原子证明工具不使用这份缓存。</p>
+<p>macOS 上可配置外部 Kimina Lean Server，为 <code>LeanGoal</code> 与 <code>LeanCheck</code> 提供反馈：</p>
+<pre tabindex="0"><code class="language-env">MATHCODE_KIMINA_SERVER=1
+MATHCODE_KIMINA_CMD=&quot;/absolute/path/to/kimina-lean-server/.venv/bin/python -m server&quot;
+MATHCODE_KIMINA_CWD=/absolute/path/to/kimina-lean-server
+MATHCODE_KIMINA_PROJECT_ROOT=/absolute/path/to/served-lean-project
+</code></pre>
+<p>声明的项目与 Lean 版本必须匹配当前项目。命令须直接启动 Python；使用 virtualenv
+时，它必须位于 <code>MATHCODE_KIMINA_CWD</code> 下。MathCode 在仅绑定 loopback 的沙箱中
+启动服务，移除 provider 凭据，只允许写入私有 scratch。启动、兼容性或传输失败时
+回退到锁定工具链的子进程，并报告警告。</p>
+<p>Kimina 反馈不是完成证书。<code>LeanVerify</code> 与隔离论文 Agent 始终使用新的隔离子进程。
+Linux 和 Windows 在此反馈路径中使用锁定工具链的子进程；发行包本身仅支持
+<a href="installation.ZH.html">安装指南</a>列出的平台。</p>
+<footer class="article-footer"><a href="lean.ZH.md">查看 Markdown 原文 ↗</a><a href="configuration.ZH.html">下一篇：配置与扩展 →</a></footer></main><aside class="toc"><details open><summary>本页目录</summary><nav aria-label="本页目录"><a href="#证明工具">证明工具</a><a href="#定理库">定理库</a><a href="#公理库">公理库</a><a href="#obsidian">Obsidian</a><a href="#可选反馈后端">可选反馈后端</a></nav></details></aside></div>
+<footer class="site-footer">MathCode · 数学编码助手</footer></body></html>
