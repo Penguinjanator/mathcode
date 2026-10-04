@@ -222,13 +222,13 @@ codex auth login
 mathcode</code></pre>
         <p><code>setup.sh</code> prepares the release checkout, downloads the bundled runtime and Lean toolchain, and installs a user-local <code>mathcode</code> launcher. Try it with:</p>
 <pre><code>mathcode -p "prove that the square of an even number is even"</code></pre>
-        <p>Outputs are written to <code>LeanFormalizations/</code>. A browser UI is available via <code>./run webui</code>.</p>
+        <p>The agent works directly in the selected workspace, and only a successful strict Lean verification certifies a finished proof. A browser UI is available via <code>./run webui</code>.</p>
       </div>
     </div></section>
     <section id="features" class="section content-section"><div class="container">
       <h2 class="section-title">Features</h2>
       <div class="columns is-multiline">
-          <div class="column is-4"><div class="pillar-box"><strong>Persistent Lean REPL</strong><p style="margin:.5rem 0 0">A persistent Lean language server brings compile checks to <strong>~0.4s</strong> after a one-time warmup, instead of ~30s.</p></div></div>
+          <div class="column is-4"><div class="pillar-box"><strong>Fast Lean Feedback</strong><p style="margin:.5rem 0 0">Eligible checks can reuse an explicitly configured, project-matched Lean service; strict final verification always runs fresh.</p></div></div>
           <div class="column is-4"><div class="pillar-box"><strong>Theorem Library</strong><p style="margin:.5rem 0 0">Explicit theorem-store actions compile, mirror, and index reusable declarations without hidden persistence.</p></div></div>
           <div class="column is-4"><div class="pillar-box"><strong>Axiom Library</strong><p style="margin:.5rem 0 0">Store conversational assumptions as persistent, compile-checked, consistency-reviewed Lean declarations.</p></div></div>
           <div class="column is-4"><div class="pillar-box"><strong>Lean LSP Integration</strong><p style="margin:.5rem 0 0">Searches leansearch.net and Loogle for verified Mathlib lemmas and uses structured LSP diagnostics for repairs.</p></div></div>

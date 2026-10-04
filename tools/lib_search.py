@@ -7,15 +7,11 @@
 #     type: string
 #     description: Space-separated keywords to search for in theorem names and signatures
 #     required: true
-#   vault:
-#     type: string
-#     description: Optional Obsidian vault path to search instead of MATHCODE_OBSIDIAN_VAULT
-#     required: false
 # output: json
 # ---
 """Search the user theorem library for relevant stored theorems.
 
-Searches Stored.lean and INDEX.md for theorems matching a keyword query.
+Searches Stored.lean for theorems matching a keyword query.
 Useful for the agent to check what's already proved before attempting
 a new proof.
 

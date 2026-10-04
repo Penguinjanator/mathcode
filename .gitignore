@@ -3,6 +3,11 @@
 !.env.example
 .DS_Store
 .local
+.mathcode-lean-deferred
+.mathcode-lean-ready
+.mathcode-lean-install.lock/
+.mathcode-lean-install.owner.*
+release-assets/
 LeanFormalizations/
 lean-workspace/.lake/
 lean-workspace/VaultLibs/

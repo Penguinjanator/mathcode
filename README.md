@@ -26,24 +26,49 @@ finished proof interactively.
 ```bash
 git clone https://github.com/math-ai-org/mathcode.git
 cd mathcode
-bash setup.sh --with-lean
+bash setup.sh
 codex auth login
 mathcode
 ```
 
-For a smaller installation without Lean/Mathlib, use
-`bash setup.sh --without-lean`. You can add it later with
-`bash setup.sh --install-lean`; the first approved local Lean feature call also
-offers to install it. Running `bash setup.sh` interactively asks which mode to
-use and defaults to the full installation.
-
 `setup.sh` prepares the release checkout for daily use. It downloads or repairs
 the bundled runtime, prepares local configuration, and installs a user-local
 `mathcode` launcher for future shells. On Linux it also requires `bwrap`
-(package `bubblewrap`) and `socat` before bootstrapping the Lean workspace.
+(package `bubblewrap`) and `socat` when Lean support is installed.
 
 If your current shell has not reloaded its profile yet, use `./run` as the
 bundle-local fallback.
+
+### Optional Lean Installation
+
+Public release archives support macOS Apple Silicon (arm64) and Linux
+x86_64 with glibc and AVX2. Download the matching archive and `SHA256SUMS.txt`
+from [GitHub Releases](https://github.com/math-ai-org/mathcode/releases).
+For an existing bootstrap checkout, run `git pull --ff-only` and rerun setup
+to install the current release while preserving configuration.
+
+MathCode now supports two explicit release install modes:
+
+```bash
+bash setup.sh --with-lean     # CLI/WebUI plus the pinned Lean/Mathlib runtime
+bash setup.sh --without-lean  # lightweight CLI/WebUI install; defer Lean
+```
+
+At an interactive terminal, plain `bash setup.sh` asks which mode to use and
+defaults to the full install. Non-interactive invocations keep the previous
+full-install behavior. A core-only installation can add Lean later with:
+
+```bash
+bash setup.sh --install-lean
+```
+
+The first approved local Lean execution after a core-only install also runs
+that same installer, shows its progress, and then retries the requested tool.
+This applies to local Lean goal/check/verify and library operations; remote
+`LeanSearch` does not trigger a Lean download. The automatic installer is
+limited to the release's bundled `lean-workspace` and does not modify a
+caller-owned Lean project. Installing Lean/Mathlib may require network access,
+several minutes, and about 10 GiB of additional disk space.
 
 ### Setup Responsibilities
 
@@ -74,8 +99,8 @@ Local configuration:
 
 Lean toolchain:
 
-- can be installed with `--with-lean`, deferred with `--without-lean`, and
-  added later with `--install-lean` or on the first approved local Lean use
+- can be installed during initial setup, deferred with `--without-lean`, or
+  added later with `--install-lean` or the first approved local Lean execution
 - ships the versioned `lean-workspace/lake-manifest.json` so setup and local
   runs use the dependency graph locked by the release
 - setup materializes an empty managed `VaultLibs/UserVaultLibs/` skeleton when
@@ -86,12 +111,16 @@ Lean toolchain:
 - requires a local `MathCodeLean` readiness build after the optional Mathlib
   cache fetch; cache skips and download failures fall back to that build, and a
   build failure aborts setup
-- uses a complete bundle-local `.local/elan` Lean/Lake pair by default
+- uses a complete bundle-local `.local/elan` Lean/Lake pair by default and
+  clears ambient `ELAN_TOOLCHAIN` whenever that local pair is selected
 - accepts `lean.exe` / `lake.exe` pairs from Git Bash/MSYS
 - repairs partial local elan tool-file installs before bootstrapping the Lean
   workspace
 - uses system Lean/Lake only when `MATHCODE_SETUP_USE_SYSTEM_LEAN=1` and both
-  tools are available, preserving your existing `ELAN_HOME`
+  tools resolve to concrete binaries whose Lean and Lake versions exactly
+  match `lean-workspace/lean-toolchain`; ambient `ELAN_TOOLCHAIN` overrides are
+  ignored during this check, and validation failure falls back to bundle-local
+  Lean without persisting an Elan proxy; your existing `ELAN_HOME` is preserved
 
 ### Launcher And PATH Behavior
 
@@ -105,16 +134,18 @@ already on the current shell's `PATH`, so future shells keep resolving
 `mathcode`.
 
 If the selected launcher directory cannot be used, setup skips only the
-launcher step and continues the rest of the installation.
+launcher step and continues the rest of installation.
 
 When `MATHCODE_SETUP_USE_SYSTEM_LEAN=1`, setup captures system `lean` and
-`lake` before changing into the bundle root and records their validated absolute
-paths in `.env`. Runtime resolution validates and uses that exact pair even when
-a later process has a different `PATH`. These managed system paths use strict
-`base64:` UTF-8 encoding so Bun dotenv parsing and `./run` shell sourcing both
-preserve literal backslashes, quotes, and backticks. Without that opt-in, setup
-removes any stale managed system-toolchain selection and `--status` reports the
-default local `.local/elan` path instead of treating system Lean as installed.
+`lake` before changing into the bundle root, resolves launchers such as Elan
+proxies through the Lean-reported toolchain prefix, and records the validated
+concrete executable paths in `.env`. Runtime resolution validates and uses that
+pair even when a later process has a different `PATH`. These managed system
+paths use strict `base64:` UTF-8 encoding so Bun dotenv parsing and `./run`
+shell sourcing both preserve literal backslashes, quotes, and backticks.
+Without that opt-in, setup removes any stale managed system-toolchain selection
+and `--status` reports the default local `.local/elan` path instead of treating
+system Lean as installed.
 
 Generated `.env` path values are shell-quoted, so bundle paths containing
 characters such as `$` or single quotes remain literal when `./run` sources the
@@ -124,9 +155,9 @@ file; the managed system Lean/Lake values use the dual-parser encoding above.
 
 ```bash
 bash setup.sh --install-lean  # add or repair optional Lean/Mathlib support
-bash setup.sh --status   # check whether the binary/tooling look healthy
-bash setup.sh --clean    # remove install artifacts, keep proofs/vault data
-bash setup.sh --help     # show all setup flags
+bash setup.sh --status        # check binary, tooling, and deferred/ready state
+bash setup.sh --clean         # remove install artifacts, keep proofs/vault data
+bash setup.sh --help          # show all setup flags
 ```
 
 `setup.sh --status` checks that:
@@ -135,7 +166,7 @@ bash setup.sh --help     # show all setup flags
 - `./mathcode-webui` matches the recorded release metadata
 - the current platform's bundled `rg` is executable and reports a ripgrep
   version banner
-- optional Lean support is ready, deferred, incomplete, or not yet installed
+- optional Lean support is ready, deferred, incomplete, or not prepared
 
 `setup.sh --clean` preserves user outputs in `LeanFormalizations/`, vault
 data, and the release's locked Lake manifest. If setup previously recorded a managed launcher, later `--status` and
@@ -146,8 +177,8 @@ data, and the release's locked Lake manifest. If setup previously recorded a man
 - macOS (arm64) or glibc-based Linux (x86_64 with AVX2, built on Ubuntu 22.04)
 - `curl` for setup/bootstrap downloads
 - `shasum` or `sha256sum` for release archive verification and metadata
-- enough disk space for the bundle, plus the Lean toolchain and Mathlib caches
-  when Lean support is enabled
+- enough disk space for the core bundle; allow about 10 GiB more when enabling
+  Lean/Mathlib
 - `codex` CLI if you want the default backend and default math flow
 - Python 3.12+ (optional, only needed for analysis tools in `tools/`)
 
@@ -176,6 +207,52 @@ echo "hello" | ./run -p
 The agent edits Lean files in the selected workspace. The atomic Lean tools do
 not create a separate run directory or write proof-library artifacts.
 
+### Prompt editing and output handling
+
+In Vim mode, character deletion, replacement, case toggling, and find/till commands respect the current line. Text-object counts, paste, and dot-repeat preserve the selected text, register kind, and cursor position, including empty lines and CRLF input.
+
+Search fields preserve encoded spaces and uppercase characters, support Meta-letter editing shortcuts, and ignore unsupported function keys. Vim processes consecutive commands in one terminal input chunk; arrows do not become replacement text. Undo does not restore edits discarded before its history timer fires. Commands following undo in the same input chunk use the restored text and history. Vim dot-repeat includes newline and control-key edits, preserves append commands, and separates edits made after cursor movement. Selection dialogs apply navigation before confirmation when both keys arrive together, and submit the latest text when typing and Enter arrive together.
+
+Full-file reads preserve a lone final carriage return. Edit asks for exact text when quote normalization finds multiple literal styles. Edit, Write, and NotebookEdit reject truncated UTF-16LE files instead of dropping the incomplete byte. Selected blank lines retain their line numbers, including at the end of a partial range, without a false end-of-file warning. Consecutive Edits recognize their own CRLF or BOM writes while retaining checks for external changes.
+
+Custom shortcut chords keep literal `+` keys separate from neighboring steps, such as `ctrl++ ctrl+a`. Grep preserves glob escapes for literal wildcard characters; absolute Glob patterns match only the specified location unless they include `**`. Grep and Glob preserve trailing whitespace in returned filenames; Grep also preserves matched content whitespace.
+
+Large paper dependency cycles report their actual members and the catalog repair instruction without overflowing the traversal stack. Claim, bibliography and concept IDs cannot share stub filenames when compared without case; extraction disambiguates IDs and keeps their references aligned. Saving a distinct paper whose title and authors generate an existing paper ID reports the collision before replacing the catalog or notes. Use a distinct ID or separate vault for that paper.
+
+Obsidian dependency notes preserve the complete recognized Lean reference name, including apostrophes, Unicode continuation characters and `?`/`!` suffixes.
+
+`/stats` clears its loading indicator when you return to all-time or already loaded statistics while another range is still loading. Day spans count inclusive UTC calendar dates; recent ranges exclude future dates. Speculation savings and optional shot counts are attributed once to the accepted session day. Existing historical cache totals are preserved.
+
+The startup resume picker keeps the selected tag when older sessions load. Repeated scrolling cannot load the same page twice, and results from a previous project scope cannot leak into the current view. Local transcript search highlights the original text correctly when Unicode lowercasing changes its length. Session loading skips entire malformed JSONL rows. `/branch` flushes pending history and preserves the latest conversation, including equal timestamps; branch names avoid case-insensitive collisions. Generated `/rename` results cannot replace a newer name or affect a different session, and blank generated names are rejected.
+
+Cancelling Ctrl+R restores the draft and its input mode; old reads cannot replace it after the search closes or changes. In Bash mode, Up followed by Down returns to the unsent draft. Returning to the draft with Down or resetting input prevents an older pending recall from replacing it.
+
+Pasting with 7-bit or 8-bit terminal markers keeps pasted control sequences from acting as keystrokes and leaves following input available for normal editing. Markdown separates horizontal rules from following text, renders alternate list markers and escapes, and preserves LF, CRLF and CR paragraph boundaries in streaming and completed messages. `/copy [N]` copies the complete selected answer, including text delivered in separate streamed blocks.
+
+`--from-pr TERM` opens the PR-linked session picker with `TERM` as its search text; PR numbers and URLs still select their matching sessions. A first page without sessions matching the PR filter continues to older pages. If reading another page fails, the picker shows the concrete error and accepts Enter to retry, preserving its search and already loaded sessions. Where space permits, the focused row remains visible when the error reduces the list height; oversized errors remain retryable on short terminals. While `/diff` is loading, navigation keeps the first arriving file selectable. Pasting words such as `escape` or `return` into a search field inserts those words.
+
+In builds with workspace search enabled, completed searches show current files and line text, including at the 500-result limit. Temporary results from the previous query are discarded at completion.
+
+File previews retain accurate line counts and truncation markers, and FileEdit refreshes cached text after timestamp-preserving replacements. Queued prompts remain queued when submission is deferred. Output limits account for UTF-8 bytes; truncation preserves Unicode pairs and reports omitted output.
+
+A stalled tool or hook no longer blocks an early concurrent stream exit or hides another task's error during cleanup.
+
+### Saved WebFetch and MCP Content
+
+When WebFetch classifies a response as binary, or an MCP binary payload is
+routed to sidecar storage, MathCode saves the exact persisted bytes in the
+current session's `tool-results` directory and reports the full path in the
+tool result. If saving fails — a full disk, a read-only or unwritable
+`tool-results` directory — the fetch still succeeds and the tool result says so
+explicitly, naming the reason instead of a path, so the summary is never
+presented alongside a file that does not exist. Recognized declared MIME types keep their normal extension. When
+persisted content has no recognized MIME-derived extension, for example
+`application/octet-stream`, MathCode checks the content: valid UTF-8 text
+without binary control patterns uses `.txt`, supported PDF/PNG/JPEG/GIF/WebP
+signatures use their native extension, and other opaque bytes remain `.bin`.
+This gives FileRead a readable sidecar when possible without discarding
+unsupported binary data.
+
 ### Browser UI
 
 ```bash
@@ -197,6 +274,31 @@ available in release bundles. The full authenticated URL is written only to the
 local terminal, while command result/status text redacts it as
 `token=<redacted>`. For slash-command launches, the selected port and workspace
 override same-named WebUI keys from the bundle `.env`.
+
+Transcript messages render GFM plus KaTeX for `$...$`, `$$...$$`, `\(...\)`,
+and `\[...\]` math. To render an SVG diagram, put one `<svg>` document in a
+fenced code block whose info string is `svg`. SVG previews use a bounded
+allowlist: raw HTML remains escaped, and scripts, event handlers,
+`foreignObject`, external resources, document declarations, all `use`
+elements/expansion, and nested resource-definition references are removed or
+rejected. Bracketed formulas remain independent from stray streaming `$`
+characters; code, links, emphasis, and images between unrelated dollars remain
+ordinary Markdown. Oversized inline/display formulas and GFM tables scroll
+inside the transcript instead of widening the page. Safe SVG text includes
+browser-parsed CDATA; inert color inheritance, clip/mask units, mask type, and
+preserved XML text spacing remain available. Blank or zero-width-only SVG
+titles/ARIA labels fall back to the default diagram name. An unfinished
+streaming SVG fence stays a quiet code preview until its closing fence arrives.
+Closed assistant code fences labelled `js` or `javascript` add Run, Stop, and
+Reset controls for a browser-local console preview. Execution is opt-in and
+isolated in a sandboxed iframe plus a dedicated worker: it cannot access the
+WebUI DOM, parent window, storage, network, or child workers, and each run is
+stopped after two seconds. Console output, returned async values, syntax/runtime
+errors, and unhandled promise rejections raised during the active run remain
+visible in the transcript; tracked timers keep that run active until they clear
+or reach the same deadline.
+User-message, thinking, non-JavaScript, and unfinished streaming fences remain
+plain code.
 
 ### Goal And Command Limits
 
@@ -316,6 +418,75 @@ Shell sleep auto-backgrounding and path validation recognize:
   parameters
 - short, fractional, signed, and exponent `timeout` wrappers
 
+Terminal sessions retain tool errors and hook blocking reasons in compact
+summaries, including failures before any inner operation completes. Skill
+arguments preserve literal glob patterns and Markdown frontmatter is recognized
+only at the start of a file. Config recovery recommends valid local backup
+files; future timestamps and corrupt generations cannot suppress normal backups.
+Failed quarantine copies report their actual error. Stats labels fit the
+available columns, screenshots handle ANSI hyperlinks, and release notes stop
+at the installed version.
+Recognized ANSI control-string contents stay out of screenshots even across
+line breaks. SVG exports expand tabs to eight-column stops. Brace expansions that exceed
+their depth or result budget return the complete original pattern.
+YAML recovery preserves valid neighboring scalar values and their quote/comment
+semantics. Recovered brace globs retain skill/instruction path scoping, and unmatched
+character classes cannot consume patterns in later path segments. Transcript
+mode shows failed or blocked hook commands even when verbose mode is off.
+Git config lookups preserve significant whitespace before line continuations,
+including a final backslash at EOF, so configured hook paths retain their value.
+
+Write requires a complete prior read of an existing file, starting at the first
+line without an explicit `limit` (even if a limited read reaches EOF). Unread, partial, and
+truncated views are rejected before loading the target; subsequent reads are
+bounded by the cached snapshot, including if the file grows during validation.
+
+Full-file edits check the latest content even when an external save preserves or
+backdates the modification time. Notebook reads retain complete JSON snapshots
+for safe whole-file replacement. Text and notebook reads warn about invalid
+UTF-8 and do not cache lossy snapshots, even when token validation fails.
+Write and NotebookEdit refuse to replace malformed bytes regardless of file
+size until the encoding is repaired. Merging read caches preserves the newer file
+state even when the cache is full. Notebook edits reject lossy decoding, return
+the stored cell ID, and remove text-cell attachments when converting to code.
+Glob results are independent of personal ripgrep output settings; Grep preserves
+delimiters inside character classes. Git diffs preserve special filenames,
+select literal paths, count header-like content, and enforce UTF-8 byte limits.
+
+Tool diagnostics retain failure reasons and warnings alongside verbose logs.
+MCP errors retain embedded resource details and structured fields. If an MCP
+content block cannot be processed, its diagnostic remains visible alongside
+readable blocks and structured results. Agent hooks preserve nested exception
+details, inherited timeout reasons, and provider errors. Invalid Lean results
+preserve readable diagnostics, file/range/code fields, and warnings even when
+other fields cannot be read.
+
+Task output retains a bounded diagnostic tail after overflow and preserves
+concrete read errors. Completion notices retain both ends of long output, and
+successful asynchronous hooks still report stderr diagnostics. Quiet hooks
+report cleanup failures, remove completed entries, and invalidate the session
+environment after SessionStart. WebFetch keeps decoding warnings on cached and binary responses, including when summarization
+fails without a saved file. New sessions refresh hook
+environments instead of reusing a prior session's values.
+
+Transcript export includes pre-compaction history and expanded tool details,
+continues past invisible chunks, and validates chunk sizes. Early terminal input
+preserves split UTF-8 during handoff and normalizes pasted CRLF once. Repeated
+scalar CLI options use the last actual occurrence. Scheduled runs remain in the
+future across fall-back transitions, and uneven cron steps retain their precise
+expression instead of an inaccurate interval label. Activity accounting retains
+eligible user time before and between CLI work, subtracting only actual overlap.
+
+WebUI start retries preserve request identity after a lost acknowledgement.
+On command/session conflicts, WebUI checks the original session and opens it
+without replaying the prompt, preserving the draft when acceptance is uncertain.
+If the session is confirmed missing, the next explicit retry uses a new command
+ID with the same session ID; failed lookups retain both IDs and their diagnostics.
+Late replies respect navigation and newer goal actions. Goal objectives accept
+ordinary apostrophes and primed Lean names. Invalid SSE end frames trigger
+recovery, and arXiv freshness labels describe the data actually returned.
+
+
 ## Features
 
 ### Persistent Lean feedback backends
@@ -396,6 +567,12 @@ agent guidance: it discovers candidates, asks which declarations to store, then
 uses the same one-declaration tool call for each confirmed candidate. Atomic
 Lean feedback tools never append to the theorem library as a hidden effect.
 
+`LibSearch` is exposed to the agent only while a vault is active through
+`MATHCODE_OBSIDIAN_VAULT` or `/obsidian on`. Without an active vault, the agent
+skips stored-library search and can still use `LeanSearch` for Lean declarations.
+After `/obsidian off`, a previously cached `LibSearch` tool is removed before
+the next agent turn.
+
 ### Axiom Library
 
 Store conversational assumptions as persistent, consistency-checked declarations:
@@ -438,8 +615,12 @@ For ordinary Lean work, the agent can choose among four atomic tools:
 
 - `LeanGoal` inspects one explicit source position.
 - `LeanCheck` compiles a file or ephemeral candidate and returns structured feedback.
-- `LeanSearch` queries one explicit provider without hidden fan-out.
+- `LeanSearch` queries one explicit provider without hidden fan-out and safely
+  folds provider-formatted multiline type signatures onto one line.
 - `LeanVerify` performs the strict final check for one fully qualified declaration; only `data.verified=true` certifies completion.
+
+`LeanVerify` uses a 1,200-second default timeout and accepts an explicit
+`timeout_s` of up to 3,600 seconds.
 
 The optional `/lean` skill offers guidance without imposing a fixed phase,
 tactic order, retry budget, or planner. The former fixed controllers have been
@@ -491,6 +672,20 @@ Drop plugin folders with `.mathcode-plugin/plugin.json` manifests to add command
 
 ## Backend Setup
 
+The default system prompt combines Codex/Astra workflow guidance with MathCode's
+coding, Lean, and EDA capabilities. Fable request models (such as `claude-fable-5`
+and `claude-fable-5-1`) use a dedicated MathCode/Fable adaptation emphasizing
+action on sufficient evidence and complete delivery. Other recognized Claude
+models retain the original template; other models use Astra. This also applies
+through OpenRouter. Both new templates favor authorized action, parallel
+independent reads, and focused verification.
+Custom system/agent prompts keep their existing precedence. Model and
+reasoning-effort settings are unchanged; task latency must be measured separately.
+When the independent-verification feature is enabled and Agent is available,
+Astra/Fable retain its completion-time review requirement, as standard Claude does.
+Both also retain the instruction to record important tool information in responses
+before the original results may be cleared.
+
 ### Default Codex/OpenAI Path
 
 No `.env` edits are required for the default path.
@@ -502,7 +697,7 @@ mathcode
 
 If you are still in the same shell where setup just finished, `./run` is the immediate fallback until you reload your shell profile.
 
-This repository's `.env.example` now selects GPT-6 Astra at medium reasoning effort.
+The packaged `.env` template now selects GPT-6 Astra at medium reasoning effort.
 To apply the same values to an existing `.env` created by an older release and
 also select medium for the CLI effort level, set:
 
@@ -512,6 +707,12 @@ OPENAI_SMALL_MODEL=gpt-6-astra
 OPENAI_REASONING_EFFORT=medium
 MATHCODE_EFFORT_LEVEL=medium
 ```
+
+Codex Responses requests always use the required streaming transport, including
+internal retries that collect a complete response before returning it. `stream`
+is not a MathCode setting; do not add it to `settings.json` to fix an API error.
+
+Responses tool calls preserve optional arguments such as Read’s line limit; an entire-file read can omit that limit.
 
 To use an Anthropic-compatible backend instead, set:
 
@@ -526,17 +727,15 @@ The release `./run` wrapper sources the bundle `.env` before launching
 MathCode. For interactive `/webui` slash-command launches, the selected WebUI
 port and workspace override same-named keys from that `.env`.
 
-The WebUI route default is separate from the CLI `.env`. In WebUI settings,
-select provider `openai`, model `gpt-6-astra`, and reasoning effort `medium`.
-Existing saved routes are preserved. Fresh WebUI defaults and built-in Astra
-capability metadata require a runtime binary containing the Astra update;
-changing this checkout's template does not update installed binaries or
-already-published release archives.
-
-For separately launched paper tasks, explicitly set
-`MATHCODE_PAPER_MODEL=gpt-6-astra` and
-`MATHCODE_PAPER_REASONING_EFFORT=medium` in an existing `.env` as needed.
-Lean compiler verification itself does not select a model.
+WebUI routing is separate from the CLI `.env`. New settings enable **Follow
+application defaults**: provider, model, and reasoning effort follow the installed
+application on startup (currently `openai` / `gpt-6-astra` / `medium`). Turn this
+off in Settings and save to pin your selection. Older settings have no record
+of whether their route was chosen manually, so they keep their selection until
+you enable this option and save. Other settings and existing sessions are preserved.
+Settings live outside Git at `$XDG_CONFIG_HOME/mathcode/webui/ui-settings.json`
+(default `~/.config/mathcode/webui/ui-settings.json`); `git pull` does not edit
+that file. Restart an updated daemon to load the new application defaults.
 
 ### WebUI Provider Keys
 
@@ -613,6 +812,9 @@ If you use MathCode in research, please cite it as:
 ```
 
 ## Community
+
+When the build-provided feedback instruction is blank, MathCode's main agent
+directs users to [open a GitHub issue](https://github.com/math-ai-org/mathcode/issues).
 
 Join our Discord for help, feedback, and discussion: **[discord.gg/f2AFP9W5](https://discord.gg/f2AFP9W5)**
 

@@ -25,19 +25,41 @@ goal、验证候选源码、检索声明并严格验证最终证明。
 ```bash
 git clone https://github.com/math-ai-org/mathcode.git
 cd mathcode
-bash setup.sh --with-lean
+bash setup.sh
 codex auth login
 mathcode
 ```
 
-如果想先安装不含 Lean/Mathlib 的轻量版本，可运行
-`bash setup.sh --without-lean`；之后可用 `bash setup.sh --install-lean`
-补装，第一次获准调用本地 Lean 功能时也会提示安装。交互式运行
-`bash setup.sh` 会询问安装方式，默认选择完整安装。
-
-`setup.sh` 会准备发行版 checkout：下载或修复 bundle 内运行时，准备本地配置，并为后续 shell 安装 user-local 的 `mathcode` 启动命令。Linux 上还会在 bootstrap Lean workspace 前要求 `bwrap`（`bubblewrap` 包）和 `socat`。
+`setup.sh` 会准备发行版 checkout：下载或修复 bundle 内运行时，准备本地配置，并为后续 shell 安装 user-local 的 `mathcode` 启动命令。安装 Lean 支持时，Linux 还会要求 `bwrap`（`bubblewrap` 包）和 `socat`。
 
 如果当前 shell 还没有 reload profile，可以先用 bundle 内的即时兜底入口 `./run`。
+
+### 可选安装 Lean
+
+公开发行包支持 macOS Apple Silicon（arm64）以及采用 glibc、支持 AVX2 的
+Linux x86_64。请从 [GitHub Releases](https://github.com/math-ai-org/mathcode/releases)
+下载对应平台的 archive 与 `SHA256SUMS.txt`。已有 bootstrap checkout 执行
+`git pull --ff-only` 后重新运行 setup，即可安装当前版本并保留原有配置。
+
+发行包现在支持两种明确的安装方式：
+
+```bash
+bash setup.sh --with-lean     # CLI/WebUI 加上锁定版本的 Lean/Mathlib runtime
+bash setup.sh --without-lean  # 只安装轻量 CLI/WebUI，暂不安装 Lean
+```
+
+在交互式终端中，直接运行 `bash setup.sh` 会询问安装方式，默认选择完整安装；
+非交互式调用仍保持原来的完整安装行为。轻量安装之后可以随时运行：
+
+```bash
+bash setup.sh --install-lean
+```
+
+轻量安装后第一次获准执行本地 Lean 功能时，也会调用同一个安装流程、显示进度，
+然后重试原来的工具调用。这适用于本地 Lean goal/check/verify 与库操作；远程
+`LeanSearch` 不会触发 Lean 下载。自动安装仅限发行包自带的 `lean-workspace`，
+不会修改调用者自己的 Lean 项目。安装 Lean/Mathlib 可能需要网络、几分钟时间，
+以及约 10 GiB 的额外磁盘空间。
 
 ### Setup 会负责什么
 
@@ -62,8 +84,8 @@ mathcode
 
 Lean 工具链：
 
-- 可用 `--with-lean` 完整安装、用 `--without-lean` 延后安装，并可在之后通过
-  `--install-lean` 或第一次获准使用本地 Lean 功能时补装
+- 可以在首次 setup 时安装，也可以通过 `--without-lean` 延后，并在之后通过
+  `--install-lean` 或第一次获准的本地 Lean 执行补装
 - 自带版本化的 `lean-workspace/lake-manifest.json`，让 setup 和本地运行使用
   当前 release 锁定的依赖图
 - setup 会在需要时物化空的受管 `VaultLibs/UserVaultLibs/` 骨架；源码构建主机
@@ -90,13 +112,18 @@ setup 只会覆盖它自己之前创建过的 launcher 文件，避免覆盖已�
 如果选定的 launcher 目录无法使用，setup 只会跳过 launcher 步骤，其余安装流程继续执行。
 
 当 `MATHCODE_SETUP_USE_SYSTEM_LEAN=1` 时，setup 会在切换到 bundle 根目录前捕获系统
-`lean` / `lake` 路径，并把已验证的绝对路径写入 `.env`。即使之后进程的
-`PATH` 不同，runtime 也会重新验证并使用这组精确路径。这两个受管路径采用严格的
+`lean` / `lake` 路径，并根据 Lean 报告的 toolchain prefix 将 Elan proxy 等
+启动器解析为具体可执行文件。解析和校验时会忽略外部 `ELAN_TOOLCHAIN` 覆盖，
+并要求 Lean 与 Lake 都精确匹配 `lean-workspace/lean-toolchain`；失败时回退到
+bundle-local Lean，且不会把 proxy 写入 `.env`。即使之后进程的 `PATH` 不同，
+runtime 也会重新验证并使用通过校验的路径。这两个受管路径采用严格的
 `base64:` UTF-8 编码，因此反斜杠、引号和反引号都能同时安全通过 Bun dotenv
 解析与 `./run` 的 shell sourcing。
 
 未设置这个 opt-in 时，setup 会清除过期的受管系统工具链选择，`--status` 会报告
-默认的本地 `.local/elan` 路径，而不会把系统 Lean 当成已安装。
+默认的本地 `.local/elan` 路径，而不会把系统 Lean 当成已安装。setup 或 `./run`
+选择 bundle-local Lean 时也会清除外部 `ELAN_TOOLCHAIN`，避免它覆盖 workspace
+锁定版本。
 
 生成的普通 `.env` 路径值会按 shell 规则引用，因此 bundle 路径里包含 `$` 或单引号等字符时，`./run` source `.env` 后仍会保留字面值；受管的系统 Lean/Lake 路径使用上面的双解析器编码。
 
@@ -104,9 +131,9 @@ setup 只会覆盖它自己之前创建过的 launcher 文件，避免覆盖已�
 
 ```bash
 bash setup.sh --install-lean  # 补装或修复可选的 Lean/Mathlib 支持
-bash setup.sh --status   # 检查二进制和依赖是否健康
-bash setup.sh --clean    # 删除安装产物，但保留证明结果和 vault 数据
-bash setup.sh --help     # 查看全部 setup 参数
+bash setup.sh --status        # 检查二进制、依赖以及 Lean 延后/就绪状态
+bash setup.sh --clean         # 删除安装产物，但保留证明结果和 vault 数据
+bash setup.sh --help          # 查看全部 setup 参数
 ```
 
 `setup.sh --status` 会检查：
@@ -114,7 +141,7 @@ bash setup.sh --help     # 查看全部 setup 参数
 - `./mathcode --version` 和 checksum 是否匹配当前 release tag 的 metadata
 - `./mathcode-webui` 是否匹配记录的 release metadata
 - 当前平台的 bundled `rg` 是否可执行并能输出 ripgrep 版本信息
-- 可选 Lean 支持当前是已就绪、已延后、不完整，还是尚未安装
+- 可选 Lean 支持当前是已就绪、已延后、不完整，还是尚未准备
 
 `setup.sh --clean` 会保留 `LeanFormalizations/`、vault 里的用户输出和当前
 release 锁定的 Lake manifest。
@@ -127,7 +154,7 @@ release 锁定的 Lake manifest。
 - macOS (arm64)，或基于 glibc 且支持 AVX2 的 Linux（x86_64，使用 Ubuntu 22.04 构建）
 - `curl`，用于 setup/bootstrap 下载
 - `shasum` 或 `sha256sum`，用于校验 release archive 并写入 metadata
-- 足够的磁盘空间用于 bundle；启用 Lean 支持时还需容纳 Lean 工具链和 Mathlib cache
+- 足够的磁盘空间用于核心 bundle；启用 Lean/Mathlib 时另外预留约 10 GiB
 - 如果你想走默认后端和默认数学流程，需要本机安装 `codex` CLI
 - Python 3.12+（可选，仅 `tools/` 目录下的分析脚本需要）
 
@@ -155,6 +182,49 @@ echo "hello" | ./run -p
 Agent 会直接编辑所选 workspace 中的 Lean 文件。四个 Lean 原子工具不会另建
 run 目录，也不会写入证明库产物。
 
+### 提示词编辑与输出处理
+
+Vim 模式下，字符删除、替换、大小写切换以及查找/定位命令遵守当前行边界。文本对象计数、粘贴和点号重复保留所选内容、寄存器类型与光标位置，并处理空行和 CRLF 输入。
+
+搜索框保留终端编码的空格与大写字符，支持 Meta 字母编辑快捷键，并忽略不支持的功能键。Vim 会依次处理同一批终端输入中的命令，方向键不会变成替换文字。撤销后，尚未触发的历史记录计时器不会恢复已丢弃的编辑；同批后续命令会使用恢复后的文本和历史。Vim 的 `.` 会保留插入中的换行、控制键编辑与追加命令；移动光标后的编辑独立记录。选择框会按顺序处理同批到达的移动和确认按键；文字和回车同批到达时也会提交最新文字。
+
+完整读取会保留文件末尾单独的回车符。引号归一化匹配到多种原文形式时，Edit 会要求提供精确文字。Edit、Write 和 NotebookEdit 会拒绝末尾代码单元不完整的 UTF-16LE 文件，避免静默丢失字节。所选空行都会保留行号，包括部分读取范围末尾的空行，不会误报超出文件末尾。连续 Edit 会识别自己写入的 CRLF 或 BOM，同时保留对外部修改的检查。
+
+自定义快捷键保留相邻步骤之间的字面量 `+` 键，例如 `ctrl++ ctrl+a`。Grep 保留 glob 转义，以匹配文件名中的通配符字符；绝对路径 Glob 只匹配指定位置，除非模式包含 `**`。Grep 和 Glob 返回的文件名保留末尾空白，Grep 也保留匹配内容中的空白。
+
+大型论文依赖循环会报告实际循环成员和目录修复提示，不再使遍历调用栈溢出。claim、参考文献和概念 ID 不能在忽略大小写时共用同一笔记文件名；提取过程会消除 ID 冲突并同步引用。不同论文的标题和作者生成已有论文 ID 时，保存操作会在覆盖目录或笔记之前报告冲突，需要为该论文选择不同 ID 或独立 vault。
+
+Obsidian 依赖笔记保留识别到的完整 Lean 引用名称，包括撇号、Unicode 后续字符及 `?`/`!` 后缀。
+
+`/stats` 加载其他时间范围时，返回全部数据或已加载的范围会立即清除加载指示器。天数按包含首尾的 UTC 日期计算，近期范围排除未来日期。推测节省时间与可选的 shot 次数只计入所属会话日期一次，已有历史缓存总数仍然保留。
+
+启动时的恢复会话选择框会在加载旧会话后保留所选标签。连续滚动不会重复加载同一页，切换项目范围后也不会混入旧范围的结果。本地全文搜索会按原文位置高亮，即使 Unicode 转小写改变了长度。加载会话时会跳过整条格式错误的 JSONL 记录。`/branch` 会先保存待写入的历史，保留最新对话（包括时间戳相同的情况），并避免分支名称在忽略大小写时发生冲突。自动 `/rename` 的旧结果不会覆盖后来的名称或修改另一会话，也不会接受空白名称。
+
+取消 Ctrl+R 搜索会恢复草稿及其输入模式，搜索结束或查询改变后，旧读取结果不能覆盖当前输入。在 Bash 模式下，先按上方向键再按下方向键会返回未提交的草稿。在历史读取完成前按下方向键回到草稿或重置输入，旧读取结果不会覆盖草稿。
+
+粘贴兼容 7 位和 8 位终端分隔符，其中的控制序列不会被当作按键执行，后续输入仍可正常编辑。Markdown 会将分隔线与后续文字分开，识别其他有效列表标记和转义，并在流式显示和完整消息中保留 LF、CRLF 和 CR 的段落边界。`/copy [N]` 会复制所选回答的完整文本，包括分块流式返回的内容。
+
+`--from-pr TERM` 会打开关联 PR 的会话选择器，并预填搜索词 `TERM`；PR 编号和 URL 仍用于选择匹配的会话。 首屏没有匹配会话时会继续加载后续页；后续页读取失败时会显示具体错误，按 Enter 重试，并保留搜索词和已加载的会话。 空间足够时，错误提示压缩列表高度仍会保持当前选中的会话可见；错误信息超出终端高度时也可重试。 `/diff` 加载期间的导航不会使随后出现的第一个文件失去选择。在搜索框中粘贴 `escape` 或 `return` 等文字时，会插入文字本身。
+
+启用工作区搜索的构建在搜索结束后显示当前文件和行内容，包括达到 500 条上限的情况；上一查询的临时结果会在结束时清除。
+
+文件预览保留准确行数和截断标记；文件被替换且修改时间保持不变时，FileEdit 也会刷新缓存。提交被延后时，排队的提示词会保留。输出字节限制按 UTF-8 计算，截断时不会拆开 Unicode 代理对，并报告省略的输出量。
+
+并发结果流提前退出或报告另一任务的错误时，不再因工具或 hook 卡在清理阶段而一直等待。
+
+### 保存 WebFetch 与 MCP 内容
+
+当 WebFetch 把响应判定为二进制，或 MCP 二进制负载被路由到 sidecar 存储时，
+MathCode 会把实际持久化的精确字节保存到当前 session 的 `tool-results` 目录，
+并在 tool result 中报告完整路径。若保存失败（磁盘写满、`tool-results` 目录只读或
+不可写等），抓取本身仍然成功，tool result 会明确说明保存失败及其原因，而不是给出
+一个并不存在的路径。可识别的已声明 MIME 类型会保留常规扩展名；
+如果已保存内容没有可识别的 MIME 扩展名，例如 `application/octet-stream`，
+MathCode 会检查实际内容：不含二进制控制模式的有效 UTF-8 文本使用 `.txt`，
+受支持的 PDF/PNG/JPEG/GIF/WebP 签名使用原生扩展名，其余不透明字节仍使用
+`.bin`。这样既能尽可能向 FileRead 提供可读 sidecar，也不会丢弃不受支持的
+二进制数据。
+
 ### 浏览器 UI
 
 ```bash
@@ -175,6 +245,25 @@ daemon。该 slash command 支持 `--no-browser`、`--port <port>`、`--status`
 只写到本地终端，command result/status 文本只显示 `token=<redacted>`。通过 slash
 command 启动时，它选定的 port 和 workspace 会覆盖 bundle `.env` 中同名的 WebUI
 设置。
+
+对话消息支持 GFM，并通过 KaTeX 渲染 `$...$`、`$$...$$`、`\(...\)` 和
+`\[...\]` 数学公式。要显示 SVG 图，请将单个 `<svg>` 文档放入 info string
+为 `svg` 的 fenced code block。SVG 预览采用有界白名单：普通 raw HTML 仍会
+转义，脚本、事件处理器、`foreignObject`、外部资源、文档声明、所有 `use`
+展开和资源定义内的嵌套资源引用会被移除或拒绝。括号公式不会被流式输出中
+游离的 `$` 劫持；无关 `$` 之间的代码、链接、强调和图片仍保持普通 Markdown
+结构。超长 inline/display 公式和 GFM 表格会在消息内部滚动，不会撑宽页面。
+安全 SVG 也保留浏览器解析后的 CDATA 文本，以及惰性的颜色继承、clip/mask
+单位、mask 类型和 XML 文本空格。空白或仅含零宽字符的 SVG 标题/ARIA 标签会
+回退到默认图示名称。尚未闭合的 SVG fence 会保持为安静的代码预览，直到闭合
+fence 到达。
+assistant 消息中已闭合且标记为 `js` 或 `javascript` 的代码 fence 会显示运行、
+停止和重置控件，用于浏览器本地的 console 预览。执行必须由用户主动触发，并
+隔离在 sandbox iframe 与独立 worker 中：无法访问 WebUI DOM、父窗口、存储、网络
+或子 worker，每次运行最多两秒。console 输出、异步返回值，以及本次运行期间发生
+的语法/运行时错误和未处理 Promise rejection 都会显示在对话中；被跟踪的定时器
+会让运行保持活动，直到定时器清空或触及同一个截止时间。用户消息、thinking、非 JavaScript
+以及尚未闭合的流式 fence 仍保持为普通代码。
 
 ### Goal 和命令限制
 
@@ -281,6 +370,60 @@ Shell sleep 自动后台化和 path validation 会识别：
 - TimeSpan `-Duration` 值，以及 PowerShell 参数缩写和 common parameters
 - 短、小数、signed 和 exponent `timeout` wrapper
 
+终端的折叠摘要会保留工具错误与 hook 的阻塞原因，包括内部操作尚未开始时的
+失败。技能参数保留字面 glob 模式，Markdown 元数据只在文件开头识别。
+配置恢复只推荐有效的本地备份；未来时间戳和损坏的历史版本不会阻止正常备份。
+隔离损坏配置失败时会显示具体错误。统计标签适配可用列宽，截图可处理 ANSI
+超链接，更新说明只显示到当前安装版本。
+已识别的 ANSI 控制字符串即使跨行，其内容也不会进入截图。
+SVG 导出按每八列一个制表位展开 Tab；brace 展开超过深度或结果预算时，
+保留完整的原始模式。YAML 恢复保留相邻合法标量的原值及引号、注释语义。
+恢复后的 brace glob 保留技能与指令的路径范围；未闭合
+的字符类不会吞掉后续路径段中的模式。transcript 模式即使未开启 verbose，
+也会显示失败或被阻塞 hook 的命令详情。
+Git 配置读取会保留续行符前的有效空白，包括文件末尾的反斜杠，避免改变
+配置中的 hook 路径值。
+
+Write 覆盖现有文件前必须从首行读取且不设置 `limit`，即使带 `limit` 的读取已到
+文件末尾也不符合要求。未读、部分读取或截断视图都会在载入
+目标内容之前被拒绝。后续读取按已有快照限制大小，检查期间文件增大也不会绕过上限。
+
+完整文件编辑会比较最新内容，即使外部保存保留或回拨了修改时间。Notebook 读取
+保留完整 JSON 快照，用于安全地替换整个文件。文本与 notebook 读取遇到无效
+UTF-8 时会明确警告并移除有损快照，即使随后因 token 超限而失败也保留诊断。
+修复编码前，Write 与 NotebookEdit 都会拒绝覆盖坏字节，不受文件大小影响。
+合并读取缓存时，即使缓存已满，也会保留较新的文件状态。Notebook 编辑
+拒绝有损解码，返回实际存储的 cell ID，并在文本单元转为代码时移除不允许的
+attachments。Glob 不受个人 ripgrep 输出配置影响；Grep 保留字符类内部的分隔符。
+Git 差异保留特殊文件名，按字面路径选择文件，正确统计类似文件头的正文，并按
+UTF-8 字节限制大小。
+
+工具诊断会在冗长日志旁保留失败原因和警告。MCP 错误会保留嵌入资源中的诊断与
+结构化字段；某个内容块无法处理时，会同时返回其具体原因、其他可读内容和结构化结果。
+Agent hook 会保留嵌套异常详情、继承的超时原因与 provider 错误。
+Lean 结果无效或部分字段无法读取时，仍保留可读的诊断、文件位置、错误代码和警告。
+
+任务输出溢出后保留有界的诊断尾部，并报告具体的读取错误；长完成通知保留首尾
+内容，成功结束的异步 hook 也会传递 stderr 诊断。无输出 hook 清理失败时，
+仍会报告具体错误、移除已完成任务；SessionStart 完成后也会刷新会话环境缓存。
+WebFetch 的缓存与二进制结果
+保留解码警告，摘要失败且没有保存文件时也不会丢失警告。新会话重新读取 hook 环境，
+不复用上一会话的值。
+
+导出包含压缩前的历史与展开的工具详情，跳过不可见分块后继续处理，并检查分块
+大小。启动输入在移交时保留不完整的 UTF-8 字节，粘贴 CRLF 只产生一次换行。
+重复的标量 CLI 选项采用最后一个实际选项值。夏令时回拨后的计划执行时间保持在
+未来，不均匀的 cron 步长保留精确表达式，不显示成错误的固定间隔。活动计时只扣除
+与 CLI 工作实际重叠的区间，保留此前及工作间隙中符合条件的用户时间。
+
+WebUI 创建会话时，确认响应丢失后的重试会保留请求身份。命令或会话冲突时，
+先查询原会话；已存在则直接打开，不重发提示，接受状态不确定时保留草稿。
+只有确认原会话不存在，下一次手动重试才更换命令 ID，并保留会话 ID；
+查询失败时保留两个 ID 及具体诊断。迟到的响应尊重当前导航
+与更新的 goal 操作。Goal 目标支持普通撇号与 Lean 带撇号的标识符。无效的 SSE
+结束帧会触发恢复，arXiv 的新鲜度标签对应实际返回的数据。
+
+
 ## 功能特性
 
 ### 持久化 Lean 反馈后端
@@ -353,6 +496,11 @@ Windows 继续使用 pinned subprocess。
 声明，再对每个确认项分别执行同一个逐声明工具调用。Lean 反馈工具不会把
 定理作为隐藏副作用写入定理库。
 
+只有通过 `MATHCODE_OBSIDIAN_VAULT` 或 `/obsidian on` 启用了 vault 时，agent
+才会获得 `LibSearch`。没有 active vault 时会跳过持久定理库搜索，仍可使用
+`LeanSearch` 搜索 Lean 声明。执行 `/obsidian off` 后，即使 `LibSearch`
+已被缓存，也会在下一个 agent turn 前移除。
+
 ### 公理库
 
 将对话中的假设存储为持久化、一致性检查的声明：
@@ -392,8 +540,12 @@ blueprint 文件名被其他用户笔记占用，生成会失败并保留该笔�
 
 - `LeanGoal` 检查一个明确的源码位置。
 - `LeanCheck` 编译文件或不落盘的候选源码，并返回结构化反馈。
-- `LeanSearch` 只查询一个明确指定的 provider，不做隐藏 fan-out。
+- `LeanSearch` 只查询一个明确指定的 provider，不做隐藏 fan-out，并把
+  provider 排版的多行类型签名安全归一化为单行。
 - `LeanVerify` 对一个 fully qualified declaration 执行严格的最终检查；只有 `data.verified=true` 才代表完成。
+
+`LeanVerify` 的默认超时为 1200 秒，也可以显式设置不超过 3600 秒的
+`timeout_s`。
 
 可选的 `/lean` skill 只提供启发，不强制阶段、tactic 顺序、重试预算或
 planner。原有固定控制器已经移除，不是发行包入口，也不在 model-visible
@@ -445,6 +597,16 @@ Agent、MCP 服务器、钩子等。
 
 ## 后端设置
 
+默认 system prompt 融合 Codex/Astra 的工作方式与 MathCode 的编码、Lean、EDA
+能力。实际请求模型是 Fable（如 `claude-fable-5`、`claude-fable-5-1`）时使用融合
+MathCode 与 Fable 执行、交付规则的专版；其他已识别的 Claude 保留旧模板；其余
+模型使用 Astra 版，通过 OpenRouter 使用时也按此规则选择。新模板强调在授权范围内
+持续执行、并行独立读取和按风险验证。自定义
+system/agent prompt 的优先级不变。模型和推理强度设置不变，实际延迟须单独测量。
+启用独立验证功能且 Agent 可用时，Astra/Fable 与标准 Claude 模板一样，
+保留完成工作前的独立复核要求。
+两者也保留在原始工具结果可能被清除前，将重要信息记录在回复中的要求。
+
 ### 默认 Codex/OpenAI 路线
 
 默认路线不需要改 `.env`：
@@ -456,7 +618,7 @@ mathcode
 
 如果你还在刚执行完 setup 的同一个 shell 里，先用 `./run` 也可以；reload shell 之后再直接用 `mathcode`。
 
-本仓库的 `.env.example` 现在会选择 GPT-6 Astra 与 medium 推理强度。若要把相同
+发行版的 `.env` 模板现在会选择 GPT-6 Astra 与 medium 推理强度。若要把相同
 配置应用到由旧版发行包创建的现有 `.env`，并同时选择 CLI 的 medium effort
 level，请设置：
 
@@ -466,6 +628,12 @@ OPENAI_SMALL_MODEL=gpt-6-astra
 OPENAI_REASONING_EFFORT=medium
 MATHCODE_EFFORT_LEVEL=medium
 ```
+
+Codex Responses 请求始终使用服务端要求的流式传输；即使内部重试需要先收集完整
+回复再返回，也仍会在网络请求中使用流式模式。`stream` 不是 MathCode 配置项，
+遇到相关 API 错误时不要把它写入 `settings.json`。
+
+Responses 工具调用保留可选参数语义；完整读取文件时可以省略 Read 的行数限制。
 
 如果你想改成 Anthropic 兼容后端，可以设置：
 
@@ -480,14 +648,14 @@ ANTHROPIC_MODEL=claude-sonnet-4-5
 交互式 `/webui` slash-command 启动时，它选定的 WebUI port 和 workspace
 会覆盖该 `.env` 中同名的键。
 
-WebUI 路由默认值独立于 CLI `.env`。请在 WebUI 设置中选择 provider `openai`、
-model `gpt-6-astra` 和 reasoning effort `medium`。已有保存的路由会被保留。
-全新 WebUI 的默认值和内置 Astra 能力信息需要包含 Astra 更新的运行时二进制；
-修改本仓库的模板不会更新已安装的二进制或已经发布的 release 压缩包。
-
-对于单独启动的 paper 任务，可按需在现有 `.env` 中显式设置
-`MATHCODE_PAPER_MODEL=gpt-6-astra` 和
-`MATHCODE_PAPER_REASONING_EFFORT=medium`。Lean 编译验证本身不选择模型。
+WebUI 路由独立于 CLI `.env`。新设置默认启用 **Follow application defaults**
+（跟随应用默认值）：启动时采用当前应用的 provider、model 和 reasoning effort
+（目前为 `openai` / `gpt-6-astra` / `medium`）。在设置页关闭此选项并保存即可
+固定选择。旧设置没有记录路由是否由用户手动选择，因此先保留原值；启用此选项
+并保存后即可自动跟随。其他设置和已有会话不会改变。
+设置文件位于 Git 仓库之外的 `$XDG_CONFIG_HOME/mathcode/webui/ui-settings.json`
+（默认 `~/.config/mathcode/webui/ui-settings.json`），`git pull` 不会修改它。
+更新应用后，重启 daemon 才会加载新的应用默认值。
 
 ### WebUI Provider 密钥
 
@@ -562,6 +730,9 @@ codex auth login
 ```
 
 ## 社区
+
+当构建提供的反馈说明为空时，MathCode 主 agent 会引导用户前往
+[GitHub Issues](https://github.com/math-ai-org/mathcode/issues) 提交问题。
 
 加入我们的 Discord 获取帮助、反馈和讨论：**[discord.gg/f2AFP9W5](https://discord.gg/f2AFP9W5)**
 
