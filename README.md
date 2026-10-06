@@ -36,10 +36,11 @@ codex auth login
 ./run
 ```
 
-Setup asks whether to install Lean/Mathlib. Use `bash setup.sh --without-lean`
-for the CLI and WebUI only, or `--with-lean` for a full installation. Lean support
-needs about 10 GiB of additional disk space and can be added later with
-`bash setup.sh --install-lean`. Non-interactive setup defaults to a full install.
+Setup installs the CLI and WebUI without Lean/Mathlib by default, in both
+interactive terminals and scripts. `--without-lean` explicitly selects this mode.
+Use `bash setup.sh --with-lean` for a full installation, or add Lean later with
+`bash setup.sh --install-lean`. Lean support needs about 10 GiB of additional disk
+space. Existing Lean installations are kept.
 
 Setup installs a `mathcode` command for new shells. Use `./run` immediately, or
 open a new shell and run:

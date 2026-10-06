@@ -779,12 +779,12 @@ show_help() {
 Usage: bash setup.sh [OPTIONS]
 
 Set up MathCode with or without the optional local Lean/Mathlib runtime.
-With no option, an interactive terminal asks which mode to use; a
-non-interactive invocation keeps the backward-compatible full install.
+With no option, setup installs CLI/WebUI only and skips Lean/Mathlib.
+Use --with-lean or --install-lean to install the optional runtime.
 
 Options:
   --with-lean     Install MathCode plus the pinned Lean/Mathlib runtime
-  --without-lean  Install MathCode CLI/WebUI only; defer Lean installation
+  --without-lean  Install MathCode CLI/WebUI only (default); defer Lean installation
   --install-lean  Add or repair the pinned Lean/Mathlib runtime later
   --help          Show this help message and exit
   --clean         Remove install artifacts (binary, Lean toolchain, .env,
@@ -799,6 +799,7 @@ Environment variables:
   MATHCODE_SKIP_USER_BIN=1        Skip installing the user-local mathcode launcher
 
 Examples:
+  bash setup.sh               # CLI/WebUI only by default
   bash setup.sh --with-lean     # full install
   bash setup.sh --without-lean  # lightweight CLI/WebUI install
   bash setup.sh --install-lean  # add Lean/Mathlib later
@@ -962,7 +963,7 @@ do_status() {
   elif [[ -f "$LEAN_DEFERRED_MARKER" ]]; then
     status_line "Lean:" "deferred (run bash setup.sh --install-lean)"
   else
-    status_line "Lean:" "not installed (local .local/elan will be installed)"
+    status_line "Lean:" "not installed (run bash setup.sh --install-lean)"
   fi
 
   if lean_ready_marker_matches_release && lean_runtime_pair_available_for_status; then
@@ -1501,7 +1502,7 @@ install_local_lean() {
       ;;
     *)
       log "Lean is not installed and this script only auto-installs Lean locally on macOS/Linux."
-      log "Install elan manually, then rerun ./setup.sh."
+      log "Install elan manually, then rerun ./setup.sh --install-lean."
       exit 1
       ;;
   esac
@@ -1851,25 +1852,7 @@ for arg in "$@"; do
   esac
 done
 
-if [[ -z "$SETUP_MODE" ]]; then
-  if [[ -t 0 && -t 1 ]]; then
-    log "Choose an installation mode:"
-    log "  1) MathCode with Lean/Mathlib (full install, default)"
-    log "  2) MathCode without Lean/Mathlib (install it on first local Lean use)"
-    printf 'Selection [1/2]: '
-    IFS= read -r setup_selection || setup_selection=""
-    case "$setup_selection" in
-      ''|1) SETUP_MODE="with-lean" ;;
-      2) SETUP_MODE="without-lean" ;;
-      *)
-        log "Invalid selection: $setup_selection"
-        exit 1
-        ;;
-    esac
-  else
-    SETUP_MODE="with-lean"
-  fi
-fi
+SETUP_MODE="${SETUP_MODE:-without-lean}"
 
 ensure_mathcode_binary
 ensure_env_file

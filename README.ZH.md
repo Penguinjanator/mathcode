@@ -35,10 +35,10 @@ codex auth login
 ./run
 ```
 
-Setup 会询问是否安装 Lean/Mathlib。只安装 CLI 和 WebUI 可用
-`bash setup.sh --without-lean`，完整安装用 `--with-lean`。Lean 支持需要额外约
-10 GiB 磁盘空间，也可以之后通过 `bash setup.sh --install-lean` 补装。
-非交互式 setup 默认完整安装。
+Setup 默认只安装 CLI 和 WebUI，不安装 Lean/Mathlib；交互终端与脚本调用行为一致。
+`--without-lean` 可显式选择这一模式，已有 Lean 安装会保留。
+完整安装请用 `bash setup.sh --with-lean`，也可以之后通过
+`bash setup.sh --install-lean` 补装。Lean 支持需要额外约 10 GiB 磁盘空间。
 
 Setup 会为新 shell 安装 `mathcode` 命令。当前 shell 可直接使用 `./run`，
 或打开新 shell 后运行：

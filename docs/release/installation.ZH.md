@@ -15,12 +15,14 @@
 在发行版 checkout 或解压后的安装目录执行：
 
 ```bash
+bash setup.sh               # 默认仅安装 CLI 与 WebUI
 bash setup.sh --with-lean     # CLI、WebUI、Lean 和 Mathlib
 bash setup.sh --without-lean  # 仅 CLI 与 WebUI
 bash setup.sh --install-lean  # 之后补装或修复 Lean
 ```
 
-交互式 `bash setup.sh` 会询问安装方式，默认完整安装；非交互式调用也默认完整安装。
+`bash setup.sh` 默认只安装 CLI 和 WebUI，不显示安装方式选择提示；交互终端与脚本调用行为一致。
+安装 Lean/Mathlib 需要显式传入 `--with-lean` 或 `--install-lean`，已有 Lean 安装会保留。
 
 轻量安装后，第一次获准执行本地 Lean goal、check、verify 或库操作时，可以自动
 补装工具链，并显示安装进度和失败原因。自动补装只作用于发行包自带的
@@ -55,7 +57,7 @@ setup。Archive 是自包含的，只有需要修复时 setup 才会下载运行
 
 ## Lean 工具链选择
 
-默认使用 `.local/elan` 中的本地工具链，版本由 `lean-workspace/lean-toolchain`
+选择安装 Lean 时，默认使用 `.local/elan` 中的本地工具链，版本由 `lean-workspace/lean-toolchain`
 锁定。Setup 保留随包提供的 `lake-manifest.json`，并要求 `MathCodeLean` readiness
 构建成功；Mathlib cache 下载失败时可以回退到本地构建。
 

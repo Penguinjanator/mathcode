@@ -17,12 +17,14 @@
 </ul>
 <h2 id="choose-an-install-mode">Choose an install mode</h2>
 <p>From the release checkout or an extracted release bundle:</p>
-<pre tabindex="0"><code class="language-bash">bash setup.sh --with-lean     # CLI, WebUI, Lean and Mathlib
+<pre tabindex="0"><code class="language-bash">bash setup.sh               # CLI and WebUI only (default)
+bash setup.sh --with-lean     # CLI, WebUI, Lean and Mathlib
 bash setup.sh --without-lean  # CLI and WebUI only
 bash setup.sh --install-lean  # add or repair Lean support later
 </code></pre>
-<p>Interactive <code>bash setup.sh</code> asks which mode to use and defaults to full installation.
-Non-interactive setup also defaults to full installation.</p>
+<p><code>bash setup.sh</code> defaults to CLI and WebUI only, without a selection prompt, in
+both interactive terminals and scripts. Lean/Mathlib installation requires
+<code>--with-lean</code> or <code>--install-lean</code>. Existing Lean installations are kept.</p>
 <p>After a core-only install, the first approved local Lean goal, check, verify, or
 library operation can install the deferred toolchain. Progress and failures are
 shown during installation. This applies only to the bundled <code>lean-workspace</code>;
@@ -49,7 +51,8 @@ against its matching checksum entry, extract it, then run setup from that folder
 The archive is self-contained; setup downloads runtime files only when repair
 is needed. Keep using the matching platform when updating manually.</p>
 <h2 id="lean-toolchain-selection">Lean toolchain selection</h2>
-<p>The default is a bundle-local toolchain in <code>.local/elan</code>, pinned by
+<p>When Lean installation is requested, the default is a bundle-local toolchain
+in <code>.local/elan</code>, pinned by
 <code>lean-workspace/lean-toolchain</code>. Setup retains the bundled <code>lake-manifest.json</code>
 and requires a successful <code>MathCodeLean</code> readiness build; failed Mathlib cache
 fetches can fall back to building locally.</p>
